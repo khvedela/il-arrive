@@ -1,0 +1,289 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Business {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  logoUrl             String?
+  phone               String   // E.164
+  brandColor          String?
+  plan                Plan     @default(TRIAL)
+  smsQuotaMonthly     Int      @default(0)
+  smsUsedThisPeriod   Int      @default(0)
+  notificationPrefs   Json?
+  timezone            String   @default("Europe/Paris")
+  trialEndsAt         DateTime?
+  billingProviderRef  String?
+
+  users       Membership[]
+  customers   Customer[]
+  interventions Intervention[]
+  invitations Invitation[]
+  auditLogs   AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  avatarUrl    String?
+  phone        String?
+
+  memberships Membership[]
+  sessions    Session[]
+  auditLogs   AuditLog[] @relation("UserAuditLogs")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Membership {
+  id            String   @id @default(cuid())
+  userId        String
+  businessId    String
+  role          Role
+  isTechnician  Boolean  @default(false)
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business      Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  interventions Intervention[]   @relation("InterventionTechnician")
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+}
+
+model Invitation {
+  id         String   @id @default(cuid())
+  businessId String
+  email      String
+  role       Role
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+  @@index([businessId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  userAgent  String?
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  phone      String
+  email      String?
+
+  business    Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  interventions Intervention[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+model Intervention {
+  id                     String             @id @default(cuid())
+  businessId             String
+  customerId             String
+  technicianMembershipId String?
+  addressLabel           String
+  addressLat             Float?
+  addressLng             Float?
+  scheduledDate          DateTime
+  windowStart            DateTime
+  windowEnd              DateTime
+  description            String?
+  internalNotes          String?
+  status                 InterventionStatus @default(SCHEDULED)
+  delayMinutes           Int?
+  delayReason            String?
+  cancelledReason        String?
+  completedAt            DateTime?
+
+  business       Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer       Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  technician     Membership?         @relation("InterventionTechnician", fields: [technicianMembershipId], references: [id])
+  events         InterventionEvent[]
+  trackingLinks  TrackingLink[]
+  trackingSessions TrackingSession[]
+  notifications  Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([technicianMembershipId])
+}
+
+model InterventionEvent {
+  id             String   @id @default(cuid())
+  interventionId String
+  type           String
+  actorUserId    String?
+  payload        Json
+  createdAt      DateTime @default(now())
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  @@index([interventionId])
+  @@index([createdAt])
+}
+
+model TrackingLink {
+  id             String   @id @default(cuid())
+  interventionId String
+  tokenHash      String   @unique
+  revokedAt      DateTime?
+  expiresAt      DateTime
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+}
+
+model TrackingSession {
+  id                String    @id @default(cuid())
+  interventionId    String    @unique
+  startedAt         DateTime
+  endedAt           DateTime?
+  lastLat           Float?
+  lastLng           Float?
+  lastAccuracy      Float?
+  lastFixAt         DateTime?
+  etaAt             DateTime?
+  etaComputedAt     DateTime?
+  etaSource         EtaSource?
+  lastNotifiedEtaAt DateTime?
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  @@index([interventionId])
+}
+
+model Notification {
+  id              String             @id @default(cuid())
+  interventionId  String
+  kind            NotificationKind
+  channel         NotificationChannel
+  to              String
+  body            String
+  idempotencyKey  String             @unique
+  provider        String?
+  providerMessageId String?
+  status          NotificationStatus @default(QUEUED)
+  error           String?
+  attempts        Int                @default(0)
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([interventionId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  businessId  String
+  actorUserId String?
+  action      String
+  targetType  String?
+  targetId    String?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  actor    User?    @relation("UserAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([businessId])
+  @@index([createdAt])
+}
+
+enum Plan {
+  TRIAL
+  SOLO
+  EQUIPE
+  BUSINESS
+}
+
+enum Role {
+  OWNER
+  DISPATCHER
+  TECHNICIAN
+}
+
+enum InterventionStatus {
+  SCHEDULED
+  EN_ROUTE
+  ARRIVED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  SMS
+}
+
+enum NotificationKind {
+  CONFIRMATION
+  EN_ROUTE
+  DELAY
+  ETA_UPDATE
+  ARRIVED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum EtaSource {
+  tomtom
+  fake
+}

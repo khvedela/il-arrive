@@ -1,0 +1,25 @@
+import type { InterventionStatus } from './intervention-status';
+import type { LocationStatus } from './location-status';
+
+export interface PublicTrackingProjection {
+  businessName: string;
+  businessLogoUrl?: string;
+  businessPhone: string;
+  technicianFirstName: string;
+  technicianAvatarUrl?: string;
+  status: InterventionStatus;
+  windowStart: string;
+  windowEnd: string;
+  addressLabel: string;
+  eta?: string;
+  etaComputedAt?: string;
+  delayMinutes?: number;
+  delayReason?: string;
+  location?: {
+    lat: number;
+    lng: number;
+    status: LocationStatus;
+    lastFixAt: string;
+  };
+  contactPhone: string;
+}
