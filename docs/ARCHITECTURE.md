@@ -89,7 +89,9 @@ Fanout via Redis pub/sub channel per intervention/business so multiple API insta
 
 ## 7. Notifications (SMS)
 
-- `SmsProvider` interface: `send(to, body, idempotencyKey) → {providerMessageId}` + delivery-status webhook parser. Adapters: `ConsoleSmsProvider` (dev, logs + Mailpit-style inbox page at `/dev/sms`), `BrevoSmsProvider` (recommended: French company, EU data, SMS + transactional email in one account). Twilio adapter possible later.
+> **Scope change (user, 2026-11-09):** this is not a production build. No real SMS provider in this phase — build the full notification pipeline (interface, queue, policy, outbox, delivery tracking model) with `ConsoleSmsProvider` only; a real adapter is a later backlog task. Manual link sharing (copy / native share sheet / `sms:` deep link opening the user's own phone with prefilled text) is the primary way to reach customers for now. Email uses a free SMTP setup only (Mailpit locally).
+
+- `SmsProvider` interface: `send(to, body, idempotencyKey) → {providerMessageId}` + delivery-status webhook parser. Adapters: `ConsoleSmsProvider` (dev, logs + Mailpit-style inbox page at `/dev/sms`). Real provider adapter (Brevo/OVH/Twilio) deferred to a later task.
 - BullMQ queue `notifications`, retries with exponential backoff (3 attempts), failures recorded on `Notification`.
 - Kinds: CONFIRMATION, EN_ROUTE, DELAY, ETA_UPDATE, ARRIVED, CANCELLED, RESCHEDULED.
 - Dedup: unique `idempotencyKey = interventionId:kind:version`.
@@ -98,7 +100,7 @@ Fanout via Redis pub/sub channel per intervention/business so multiple API insta
 - Phones: `libphonenumber-js`, default region FR, store E.164, display national format.
 - Copy is French, ≤ 160 GSM-7 chars where possible, includes business name and link. Example: `Marc (Plomberie Martin) est en route. Arrivée estimée vers 10h42. Suivi : https://…/t/…`
 
-Transactional email (invites, password reset): `MailProvider` interface; Mailpit (SMTP) in dev, Brevo in prod.
+Transactional email (invites, password reset): `MailProvider` interface; generic `SmtpMailProvider` — Mailpit in dev, any free SMTP tier via env otherwise. No paid provider.
 
 ## 8. Auth
 
@@ -133,7 +135,8 @@ Transactional email (invites, password reset): `MailProvider` interface; Mailpit
 
 | Need | Recommendation | Alternative |
 |---|---|---|
-| SMS + email | Brevo | OVHcloud SMS, Twilio |
+| Email | **Decided (user, 2026-11-09): free only for now.** Generic SMTP adapter; Mailpit locally; any free SMTP tier (e.g. Brevo free 300/day, Resend free) via env when real delivery is wanted | — |
+| SMS | **Deferred (user, 2026-11-09)** — added later. MVP uses `ConsoleSmsProvider` + manual link sharing | Brevo, OVHcloud SMS, Twilio |
 | Routing w/ traffic | TomTom Routing API | Google Routes API, HERE |
 | Geocoding | BAN (api-adresse.data.gouv.fr), free | — |
 | Map tiles | MapTiler (MapLibre GL) | OpenFreeMap (free, no traffic) |
