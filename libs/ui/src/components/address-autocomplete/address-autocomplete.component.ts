@@ -4,9 +4,9 @@ import {
   model,
   signal,
   computed,
-  EventEmitter,
   OnDestroy,
   ChangeDetectionStrategy,
+  output,
 } from '@angular/core';
 import { AddressSuggestion, AddressSearchFn } from './address-autocomplete.types';
 
@@ -222,7 +222,7 @@ export class IaAddressAutocompleteComponent implements OnDestroy {
   value = model<string>('');
   coordinates = model<{ lat: number; lng: number } | null>(null);
 
-  selected = new EventEmitter<{ label: string; lat: number; lng: number }>();
+  selected = output<{ label: string; lat: number; lng: number }>();
 
   isOpen = signal(false);
   searchResults = signal<AddressSuggestion[]>([]);

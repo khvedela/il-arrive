@@ -1,4 +1,4 @@
-import { Component, input, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy, output } from '@angular/core';
 import { IaButtonComponent } from '../button/button.component';
 
 @Component({
@@ -54,5 +54,5 @@ export class IaEmptyStateComponent {
   description = input<string | null>(null);
   actionLabel = input<string | null>(null);
 
-  actionClicked = new EventEmitter<void>();
+  actionClicked = output<void>();
 }

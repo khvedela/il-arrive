@@ -195,7 +195,24 @@ export class TechApi {
   /** Mock location endpoint: 409 unless the intervention is EN_ROUTE. */
   readonly sentLocations: Array<{ id: string; lat: number; lng: number; accuracy: number; timestamp: number }> = [];
 
+  /**
+   * POST /api/tech/interventions/:id/location (SLA-9). Until the API exists (network error / 404 /
+   * 5xx) it falls back to the in-memory mock rule: accepted only while EN_ROUTE, else conflict.
+   */
   async sendLocation(id: string, fix: { lat: number; lng: number; accuracy: number; timestamp: number }): Promise<'ok' | 'conflict'> {
+    if (typeof fetch === 'function') {
+      try {
+        const res = await fetch(`/api/tech/interventions/${encodeURIComponent(id)}/location`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, timestamp: new Date(fix.timestamp).toISOString() }),
+        });
+        if (res.status === 409) return 'conflict';
+        if (res.ok) return 'ok';
+      } catch {
+        /* no backend yet: fall through to mock */
+      }
+    }
     const inv = this.mockData.find(i => i.id === id);
     if (!inv || inv.status !== IS.EN_ROUTE) return 'conflict';
     this.sentLocations.push({ id, ...fix });

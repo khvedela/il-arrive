@@ -16,3 +16,5 @@ tsconfig.tsbuildinfo
 
 # Paperclip per-task worktrees
 .paperclip/
+test-results/
+playwright-report/

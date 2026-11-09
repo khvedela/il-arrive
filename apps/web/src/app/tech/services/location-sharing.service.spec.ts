@@ -5,21 +5,15 @@ import { TechApi } from './tech-api.service';
 type PosCb = (p: GeolocationPosition) => void;
 type ErrCb = (e: { code: number }) => void;
 
-function pos(lat: number, lng: number, accuracy = 10): GeolocationPosition {
-  return { coords: { latitude: lat, longitude: lng, accuracy }, timestamp: Date.now() } as GeolocationPosition;
-}
-
 describe('LocationSharingService', () => {
   let svc: LocationSharingService;
   let api: { sendLocation: jest.Mock };
-  let onPos: PosCb;
   let onErr: ErrCb;
   const watchPosition = jest.fn();
   const clearWatch = jest.fn();
 
   beforeEach(() => {
-    watchPosition.mockReset().mockImplementation((ok: PosCb, err: ErrCb) => {
-      onPos = ok;
+    watchPosition.mockReset().mockImplementation((_ok: PosCb, err: ErrCb) => {
       onErr = err;
       return 7;
     });

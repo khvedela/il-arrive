@@ -1,4 +1,4 @@
-import { Component, input, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy, output } from '@angular/core';
 import { TabDef } from './tab-group.directive';
 
 @Component({
@@ -101,7 +101,7 @@ export class IaTabsComponent {
   label = input('');
   variant = input<'underline' | 'segmented'>('underline');
 
-  selectedChange = new EventEmitter<number>();
+  selectedChange = output<number>();
 
   protected selectTab = (index: number): void => {
     const tab = this.tabs()[index];
