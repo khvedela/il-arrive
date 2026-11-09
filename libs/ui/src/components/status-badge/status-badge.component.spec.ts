@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { IaStatusBadgeComponent, StatusType, statusLabels } from './status-badge.component';
+import { IaStatusBadgeComponent } from './status-badge.component';
 
 @Component({
   standalone: true,
