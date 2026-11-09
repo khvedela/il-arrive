@@ -128,6 +128,27 @@ describe('ETAStalenessPolicyService', () => {
     });
   });
 
+  describe('getStatus boundaries (fake clock)', () => {
+    const now = new Date('2026-01-01T10:00:00Z');
+    const ago = (s: number) => new Date(now.getTime() - s * 1000);
+    const eta = new Date('2026-01-01T10:20:00Z');
+
+    it('is LIVE at exactly 120 s and STALE just after', () => {
+      expect(policy.getStatus(eta, ago(120), ago(120), now).status).toBe('LIVE');
+      expect(policy.getStatus(eta, ago(121), ago(121), now).status).toBe('STALE');
+    });
+
+    it('keeps the last ETA and its timestamp when stale (never extrapolates)', () => {
+      const status = policy.getStatus(eta, ago(300), ago(300), now);
+      expect(status.etaAt).toEqual(eta);
+      expect(status.computedAt).toEqual(ago(300));
+    });
+
+    it('is UNAVAILABLE without any fix', () => {
+      expect(policy.getStatus(null, null, null, now).status).toBe('UNAVAILABLE');
+    });
+  });
+
   describe('checkSessionExpiry', () => {
     it('should not expire session within 3 hours', () => {
       const startedAt = new Date(Date.now() - 2 * 3600000);
