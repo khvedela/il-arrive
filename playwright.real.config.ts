@@ -34,6 +34,8 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'e2e/report', open: 'never' }]],
   use: {
+    actionTimeout: 20_000,
+    navigationTimeout: 30_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

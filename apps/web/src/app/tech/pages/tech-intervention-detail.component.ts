@@ -304,6 +304,9 @@ function formatDateShort(dateStr: string): string {
       margin: 0 auto;
       min-height: 100vh;
       background: var(--color-bg);
+      /* room for the fixed action bar (up to 3 stacked buttons) so the content above it, e.g. the location "Arrêter" button, stays tappable */
+      padding-bottom: calc(272px + env(safe-area-inset-bottom, 0px));
+      box-sizing: border-box;
     }
 
     .tech-detail {

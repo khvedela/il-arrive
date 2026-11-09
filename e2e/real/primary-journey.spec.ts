@@ -184,7 +184,9 @@ test.describe.serial('primary scenario (ARCHITECTURE §13)', () => {
 
   test('8. Marc taps "Je suis arrivé": customer sees "Technicien arrivé" within 2 s; position no longer returned', async () => {
     await techPage.getByRole('button', { name: 'Je suis arrivé' }).click();
-    await expect(customerPage.getByText('Technicien arrivé').first()).toBeVisible({ timeout: 2_000 + 500 });
+    // the timeline always lists "Technicien arrivé" (as a future step): assert on the live status region instead
+    await expect(customerPage.getByRole('status').first()).not.toContainText('en route', { timeout: 2_000 + 500 });
+    await expect(customerPage.getByRole('status').first()).toContainText('arrivé');
     const pub = await (await customerCtx.request.get(`${URLS.api}/public/track/${smsLink.split('/t/')[1]}`)).json();
     expect(pub.status).toBe('ARRIVED');
     expect(pub.location).toBeUndefined();
@@ -193,7 +195,7 @@ test.describe.serial('primary scenario (ARCHITECTURE §13)', () => {
 
   test('9. "Intervention terminée": session ended, link shows final state only, public payload has no coordinates', async () => {
     await techPage.getByRole('button', { name: 'Intervention terminée' }).click();
-    await expect(customerPage.getByText('Terminé').first()).toBeVisible({ timeout: 10_000 });
+    await expect(customerPage.getByRole('status').first()).toContainText(/termin/i, { timeout: 10_000 });
     const raw = await (await customerCtx.request.get(`${URLS.api}/public/track/${smsLink.split('/t/')[1]}`)).text();
     const pub = JSON.parse(raw);
     expect(pub.status).toBe('COMPLETED');
@@ -212,7 +214,7 @@ test.describe.serial('primary scenario (ARCHITECTURE §13)', () => {
   test('10. owner reloads the dashboard: the intervention is Terminé with its full timeline', async () => {
     await ownerPage.goto('/app/interventions');
     await ownerPage.getByText('Marie Dupont').first().click();
-    await expect(ownerPage.getByText('Terminé').first()).toBeVisible();
+    await expect(ownerPage.locator('ia-status-badge', { hasText: 'Terminée' }).first()).toBeVisible();
     const full = await owner.json(await owner.get(`/interventions/${job.id}`));
     expect(full.intervention.status).toBe('COMPLETED');
     const types: string[] = full.timeline.map((e: { type: string }) => e.type);
