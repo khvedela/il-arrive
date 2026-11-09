@@ -320,6 +320,8 @@ describe('Notifications (Postgres + Redis)', () => {
         .set('authorization', techOfA).expect(200);
       expect(share.body.smsUri).toMatch(/^sms:\+33612345678\?body=/);
       expect(share.body.link).toContain('/t/');
+      await http().get(`/interventions/${a.iv.id}/share-message?kind=toString`)
+        .set('authorization', techOfA).expect(400);
       const a2 = await seed();
       await http().get(`/interventions/${a2.iv.id}/share-message`).set('authorization', techOfA).expect(404);
 

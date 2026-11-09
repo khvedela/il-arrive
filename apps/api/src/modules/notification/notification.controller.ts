@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { IsEnum } from 'class-validator';
 import { NotificationKind } from '@prisma/client';
 import { NotificationService } from './notification.service';
@@ -30,7 +30,10 @@ export class NotificationController {
   @Get('interventions/:id/share-message')
   @Roles('OWNER', 'DISPATCHER', 'TECHNICIAN')
   shareMessage(@Auth() auth: AuthContext, @Param('id') id: string, @Query('kind') kind?: string) {
-    const k = kind && kind in NotificationKind ? (kind as NotificationKind) : 'EN_ROUTE';
+    if (kind && !Object.values(NotificationKind).includes(kind as NotificationKind)) {
+      throw new BadRequestException('invalid_notification_kind');
+    }
+    const k = (kind as NotificationKind | undefined) ?? 'EN_ROUTE';
     return this.notifications.buildShareMessage(
       id,
       {
