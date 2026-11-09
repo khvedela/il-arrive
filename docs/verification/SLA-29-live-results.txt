@@ -1,0 +1,180 @@
+SLA-29 live verification — 2026-11-09
+Verified source revision: 19d8e5680947ab2798cc5ae1d1c1dd55c13ebd6f
+Environment: dedicated PostgreSQL 16 (127.0.0.1:55432), Redis 7 (127.0.0.1:56379), supplied by SLA-30.
+Secure configuration: source .cache/sla29/test.env (contents deliberately omitted).
+export OPENSSL_CONF=/dev/null
+export TMPDIR="$PWD/.cache/sla29"
+export XDG_CACHE_HOME="$PWD/.cache/sla29"
+
+$ node apps/api/node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma
+Environment variables loaded from .env
+Prisma schema loaded from apps/api/prisma/schema.prisma
+Datasource "db": PostgreSQL database "ilarrive_sla29_test", schema "public" at "127.0.0.1:55432"
+
+7 migrations found in prisma/migrations
+
+Applying migration `20261109000323_init`
+Applying migration `20261109090000_sms_period_start`
+Applying migration `20261109091000_notification_dispatch_fields`
+Applying migration `20261109100500_notification_event_outbox`
+Applying migration `20261109103000_notification_event_retries`
+Applying migration `20261109120000_password_reset_token`
+Applying migration `20261109130000_tracking_link_single_active`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261109000323_init/
+    └─ migration.sql
+  └─ 20261109090000_sms_period_start/
+    └─ migration.sql
+  └─ 20261109091000_notification_dispatch_fields/
+    └─ migration.sql
+  └─ 20261109100500_notification_event_outbox/
+    └─ migration.sql
+  └─ 20261109103000_notification_event_retries/
+    └─ migration.sql
+  └─ 20261109120000_password_reset_token/
+    └─ migration.sql
+  └─ 20261109130000_tracking_link_single_active/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+
+Exit code: 0
+
+$ node apps/api/node_modules/jest/bin/jest.js --config apps/api/jest.integration.config.js --runInBand --forceExit --cacheDirectory .cache/sla29/jest-integration
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationService] enqueue failed for cmw92ajbl002lprmky6q8sm8x; reconciler will retry
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationService] Error: redis down
+    at Object.<anonymous> (/Users/khvedela/Desktop/il-arrive/.paperclip/worktrees/SLA-10-il-arrive-api-sms-notifications-provider-interface-queue-thresholds-dedup-quotas-delivery-tracking/apps/api/test/integration/notification.spec.ts:197:52)
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-0 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-0
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-1 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-1
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-10 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-10
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-100 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-100
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-101 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-101
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-102 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-102
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-103 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-103
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-104 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-104
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-11 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-11
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-12 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-12
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-13 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-13
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-14 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-14
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-15 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-15
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-16 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-16
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-17 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-17
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-18 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-18
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-19 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-19
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-2 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-2
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-20 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-20
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-21 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-21
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-22 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-22
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-23 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-23
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-24 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-24
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-25 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-25
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-26 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-26
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-27 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-27
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-28 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-28
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-29 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-29
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-3 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-3
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-30 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-30
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-31 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-31
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-32 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-32
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-33 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-33
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-34 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-34
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-35 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-35
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-36 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-36
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-37 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-37
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-38 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-38
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-39 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-39
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-4 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-4
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-40 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-40
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-41 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-41
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-42 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-42
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-43 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-43
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-44 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-44
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-45 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-45
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-46 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-46
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-47 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-47
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-48 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-48
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-49 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-49
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-5 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-5
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-50 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-50
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-51 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-51
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-52 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-52
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-53 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-53
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-54 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-54
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-55 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-55
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-56 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-56
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-57 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-57
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-58 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-58
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-59 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-59
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-6 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-6
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-60 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-60
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-61 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-61
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-62 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-62
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-63 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-63
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-64 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-64
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-65 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-65
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-66 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-66
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-67 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-67
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-68 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-68
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-69 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-69
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-7 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-7
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-70 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-70
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-71 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-71
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-72 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-72
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-73 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-73
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-74 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-74
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-75 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-75
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-76 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-76
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-77 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-77
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-78 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-78
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-79 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-79
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-8 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-8
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-80 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-80
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-81 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-81
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-82 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-82
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-83 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-83
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-84 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-84
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-85 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-85
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-86 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-86
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-87 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-87
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-88 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-88
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-89 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-89
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-9 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-9
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-90 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-90
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-91 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-91
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-92 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-92
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-93 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-93
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-94 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-94
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-95 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-95
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-96 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-96
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-97 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-97
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-98 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-98
+[Nest] 88940  - 11/09/2026, 10:31:31 AM   ERROR [NotificationEventSubscriber] notification event poison-cmw92ajpw005fprmkdngfzbap-99 retry scheduled: invalid ETA event poison-cmw92ajpw005fprmkdngfzbap-99
+PASS apps/api/test/integration/notification.spec.ts
+  ● Console
+
+    console.log
+      ◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+      at _log (../../node_modules/.pnpm/dotenv@17.4.1/node_modules/dotenv/lib/main.js:131:11)
+
+PASS apps/api/test/integration/tracking-link-concurrency.spec.ts
+PASS apps/api/test/integration/health.spec.ts
+  ● Console
+
+    console.log
+      ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+      at _log (../../node_modules/.pnpm/dotenv@17.4.1/node_modules/dotenv/lib/main.js:131:11)
+
+
+Test Suites: 3 passed, 3 total
+Tests:       19 passed, 19 total
+Snapshots:   0 total
+Time:        4.277 s, estimated 5 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+
+Exit code: 0

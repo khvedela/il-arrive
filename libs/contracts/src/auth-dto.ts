@@ -9,7 +9,8 @@ export interface RegisterDto {
   firstName: string;
   lastName: string;
   businessName: string;
-  phone: string;
+  phone?: string;
+  isTechnician?: boolean;
 }
 
 export interface UpdateProfileDto {
@@ -78,4 +79,12 @@ export interface RegisterResponse {
   user: MeUser;
   memberships: MeMembership[];
   activeBusinessId: string;
+}
+
+export interface AcceptInvitationDto {
+  token: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
 }

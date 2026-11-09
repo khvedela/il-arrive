@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const appEnv = z.object({
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   API_PORT: z.coerce.number().default(3000),
   API_HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url(),
