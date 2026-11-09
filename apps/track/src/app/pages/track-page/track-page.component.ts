@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, computed, ChangeDetectionStrategy, NgZone, DestroyRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed, signal, ChangeDetectionStrategy, NgZone, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -764,11 +764,19 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   private trackingApi: TrackingApi = inject(TrackingApi);
   private ngZone: NgZone = inject(NgZone);
 
-  protected state: AppState = {
+  private readonly stateSignal = signal<AppState>({
     projection: null,
     loading: true,
     error: null,
-  };
+  });
+
+  // Signal-backed so OnPush templates and computed() react to updates.
+  protected get state(): AppState {
+    return this.stateSignal();
+  }
+  protected set state(value: AppState) {
+    this.stateSignal.set(value);
+  }
 
   protected projection = computed(() => this.state.projection || {} as PublicTrackingProjection);
 
