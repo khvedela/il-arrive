@@ -8,7 +8,7 @@ export interface PublicTrackingProjection {
   technicianFirstName: string;
   technicianAvatarUrl?: string;
   status: InterventionStatus;
-  interventionDate: string;
+  interventionDate?: string;
   windowStart: string;
   windowEnd: string;
   addressLabel: string;
