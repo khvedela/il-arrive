@@ -9,7 +9,8 @@ export interface RegisterDto {
   firstName: string;
   lastName: string;
   businessName: string;
-  phone: string;
+  phone?: string;
+  isTechnician?: boolean;
 }
 
 export interface UpdateProfileDto {
@@ -36,4 +37,12 @@ export interface ResetPasswordDto {
 export interface InviteMemberDto {
   email: string;
   role: 'OWNER' | 'DISPATCHER' | 'TECHNICIAN';
+}
+
+export interface AcceptInvitationDto {
+  token: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
 }
