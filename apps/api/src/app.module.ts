@@ -9,6 +9,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { InterventionModule } from './modules/intervention/intervention.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { RoutingModule } from './routing/routing.module';
+import { GeoModule } from './geo/geo.module';
+import { ETAModule } from './eta/eta.module';
 
 @Module({
   imports: [
@@ -27,6 +30,9 @@ import { NotificationModule } from './modules/notification/notification.module';
     InterventionModule,
     TrackingModule,
     NotificationModule,
+    RoutingModule.forRoot(),
+    GeoModule.forRoot(),
+    ETAModule,
   ],
   providers: [PrismaService, RedisService],
 })
