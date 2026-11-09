@@ -6,10 +6,10 @@ export interface TechIntervention {
   customerName: string;
   customerPhone: string;
   addressLabel: string;
-  addressLat: number;
-  addressLng: number;
-  lat: number;
-  lng: number;
+  addressLat: number | null;
+  addressLng: number | null;
+  lat: number | null;
+  lng: number | null;
   scheduledDate: string;
   windowStart: string;
   windowEnd: string;

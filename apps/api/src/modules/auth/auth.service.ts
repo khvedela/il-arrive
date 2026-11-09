@@ -11,6 +11,7 @@ import { MailProvider } from '../mail/mail.provider';
 import { CreateBusinessService } from '../business/create-business.service';
 import { CreateUserService } from './create-user.service';
 import { CreateSessionService } from './create-session.service';
+import type { MeMembership, MeResponse } from '@il-arrive/contracts';
 
 @Injectable()
 export class AuthService {
@@ -57,6 +58,20 @@ export class AuthService {
 
     const session = await this.createSession.execute({ userId: user.id });
 
+    const registeredMembership: MeMembership = {
+      id: business.id,
+      businessId: business.id,
+      name: business.name,
+      slug: business.slug,
+      logoUrl: business.logoUrl,
+      phone: business.phone,
+      brandColor: business.brandColor,
+      plan: business.plan,
+      role: 'OWNER',
+      isTechnician: dto.isTechnician ?? false,
+      onboardingCompleted: false,
+    };
+
     return {
       user: {
         id: user.id,
@@ -66,20 +81,9 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatarUrl,
       },
-      memberships: [
-        {
-          id: business.id,
-          name: business.name,
-          slug: business.slug,
-          logoUrl: business.logoUrl,
-          phone: business.phone,
-          brandColor: business.brandColor,
-          plan: business.plan,
-          role: 'OWNER',
-          isTechnician: dto.isTechnician ?? false,
-        },
-      ],
+      memberships: [registeredMembership],
       activeBusinessId: business.id,
+      activeMembership: registeredMembership,
       sessionId: session.id,
       accessToken: session.token,
     };
@@ -123,20 +127,35 @@ export class AuthService {
     });
   }
 
-  async getMe(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+  async getMe(userId: string, activeBusinessId: string): Promise<MeResponse> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    const memberships = await this.prisma.membership.findMany({
+    const rows = await this.prisma.membership.findMany({
       where: { userId: user.id },
-      include: {
-        business: true,
-      },
+      orderBy: { createdAt: 'asc' },
+      include: { business: { include: { _count: { select: { customers: true, interventions: true } } } } },
     });
+    const memberships: MeMembership[] = rows.map((m) => ({
+      id: m.business.id,
+      businessId: m.business.id,
+      name: m.business.name,
+      slug: m.business.slug,
+      logoUrl: m.business.logoUrl,
+      phone: m.business.phone,
+      brandColor: m.business.brandColor,
+      plan: m.business.plan,
+      role: m.role,
+      isTechnician: m.isTechnician,
+      // No dedicated column yet: a business that has any customer or intervention is onboarded.
+      onboardingCompleted: m.business._count.customers + m.business._count.interventions > 0,
+    }));
+    const activeMembership = memberships.find((m) => m.businessId === activeBusinessId);
+    if (!activeMembership) {
+      throw new UnauthorizedException('No membership for active business');
+    }
 
     return {
       user: {
@@ -147,18 +166,9 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatarUrl,
       },
-      memberships: memberships.map((m) => ({
-        id: m.business.id,
-        name: m.business.name,
-        slug: m.business.slug,
-        logoUrl: m.business.logoUrl,
-        phone: m.business.phone,
-        brandColor: m.business.brandColor,
-        plan: m.business.plan,
-        role: m.role,
-        isTechnician: m.isTechnician,
-      })),
-      activeBusinessId: memberships.find((m) => m.role === 'OWNER')?.businessId || memberships[0]?.businessId,
+      memberships,
+      activeBusinessId: activeMembership.businessId,
+      activeMembership,
     };
   }
 

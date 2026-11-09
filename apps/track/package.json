@@ -6,7 +6,8 @@
     "dev": "ng serve --port 4201",
     "build": "ng build",
     "typecheck": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "test": "jest"
   },
   "dependencies": {
     "@angular/common": "^19.2.0",
@@ -17,9 +18,9 @@
     "@angular/platform-browser": "^19.2.0",
     "@angular/platform-browser-dynamic": "^19.2.0",
     "@angular/router": "^19.2.0",
-    "rxjs": "^7.8.1",
-    "@il-arrive/ui": "workspace:*",
     "@il-arrive/contracts": "workspace:*",
+    "@il-arrive/ui": "workspace:*",
+    "rxjs": "^7.8.1",
     "tslib": "^2.8.0",
     "zone.js": "~0.15.0"
   },
@@ -27,6 +28,11 @@
     "@angular-devkit/build-angular": "^19.2.0",
     "@angular/cli": "^19.2.0",
     "@angular/compiler-cli": "^19.2.0",
+    "@angular/platform-browser-dynamic": "^19.2.0",
+    "@playwright/test": "^1.65.0",
+    "@types/jest": "^30.0.0",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-preset-angular": "^17.0.3",
     "typescript": "~5.7.0"
   }
 }

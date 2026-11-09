@@ -195,6 +195,14 @@ export class TechnicianInterventionController {
     return this.interventionService.getMyInterventions(businessId, technicianId, status);
   }
 
+  @Get('today')
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @ApiOperation({ summary: "Get the technician's own interventions scheduled today, with customer contact" })
+  async getMyToday(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
+    return this.interventionService.getMyToday(user.activeBusinessId, user.userId);
+  }
+
   @Get(':id')
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)

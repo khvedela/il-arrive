@@ -1,223 +1,147 @@
 import { TestBed } from '@angular/core/testing';
-import { TechApi, TechApiService, ACTION_TO_STATUS, VALID_TRANSITIONS } from './tech-api.service';
-import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
+import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
+import {
+  TechApi,
+  TechApiService,
+  ACTION_TO_STATUS,
+  VALID_TRANSITIONS,
+  toTechIntervention,
+  type ApiIntervention,
+} from './tech-api.service';
 
-describe('TechApi', () => {
+const row: ApiIntervention = {
+  id: 'i1',
+  customerId: 'c1',
+  addressLabel: '12 rue de la Paix, Paris',
+  addressLat: 48.87,
+  addressLng: 2.32,
+  scheduledDate: '2026-11-09T00:00:00.000Z',
+  windowStart: new Date(2026, 10, 9, 8, 0).toISOString(),
+  windowEnd: new Date(2026, 10, 9, 12, 0).toISOString(),
+  status: IS.SCHEDULED,
+  description: null,
+  delayMinutes: null,
+  customer: { id: 'c1', name: 'Marie Dupont', phone: '0612345678' },
+};
+
+describe('toTechIntervention', () => {
+  it('maps the API row and customer, formats the window in local time', () => {
+    const m = toTechIntervention(row);
+    expect(m).toMatchObject({
+      id: 'i1',
+      customerName: 'Marie Dupont',
+      customerPhone: '0612345678',
+      windowStart: '08:00',
+      windowEnd: '12:00',
+      scheduledDate: '2026-11-09',
+      lat: 48.87,
+    });
+    expect(m.delayMinutes).toBeUndefined();
+    expect(m.description).toBeUndefined();
+  });
+
+  it('derives the delay ETA from windowEnd + delayMinutes', () => {
+    const m = toTechIntervention({ ...row, delayMinutes: 30, delayReason: 'Traffic' });
+    expect(m).toMatchObject({ delayMinutes: 30, delayReason: 'Traffic', delayEta: '12:30' });
+  });
+});
+
+describe('transition tables', () => {
+  it('has no technician cancel action', () => {
+    expect(Object.keys(ACTION_TO_STATUS)).toEqual(['en_route', 'arrived', 'complete', 'stop_route']);
+    expect(VALID_TRANSITIONS[IS.SCHEDULED]).toEqual(['en_route']);
+    expect(VALID_TRANSITIONS[IS.EN_ROUTE]).toEqual(['arrived', 'stop_route']);
+    expect(VALID_TRANSITIONS[IS.ARRIVED]).toEqual(['complete']);
+    expect(VALID_TRANSITIONS[IS.COMPLETED]).toEqual([]);
+  });
+});
+
+describe('TechApi / TechApiService over HTTP', () => {
+  let http: HttpTestingController;
   let api: TechApi;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    api = TestBed.inject(TechApi);
-  });
-
-  describe('getTodayInterventions', () => {
-    it('returns today date and interventions', () => {
-      const today = new Date().toISOString().split('T')[0];
-      const result = api.getTodayInterventions();
-      expect(result).not.toBeNull();
-      expect(result!.date).toBe(today);
-      expect(result!.interventions.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('getIntervention', () => {
-    it('returns intervention by id', () => {
-      const todayData = api.getTodayInterventions();
-      const firstId = todayData!.interventions[0].id;
-      const result = api.getIntervention(firstId);
-      expect(result).not.toBeNull();
-      expect(result!.id).toBe(firstId);
-    });
-
-    it('returns null for unknown id', () => {
-      const result = api.getIntervention('nonexistent');
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('transition', () => {
-    it('transitions SCHEDULED to EN_ROUTE with en_route action', () => {
-      const data = api.getTodayInterventions()!;
-      const scheduled = data.interventions.find(i => i.status === IS.SCHEDULED)!;
-      const result = api.transition(scheduled.id, 'en_route');
-      expect(result).not.toBeNull();
-      expect(result!.intervention.status).toBe(IS.EN_ROUTE);
-    });
-
-    it('transitions EN_ROUTE to ARRIVED with arrived action', () => {
-      const data = api.getTodayInterventions()!;
-      const enRoute = data.interventions.find(i => i.status === IS.EN_ROUTE)!;
-      const result = api.transition(enRoute.id, 'arrived');
-      expect(result).not.toBeNull();
-      expect(result!.intervention.status).toBe(IS.ARRIVED);
-    });
-
-    it('transitions ARRIVED to COMPLETED with complete action', () => {
-      // First create an arrived intervention
-      const data = api.getTodayInterventions()!;
-      const enRoute = data.interventions.find(i => i.status === IS.EN_ROUTE)!;
-      api.transition(enRoute.id, 'arrived');
-      const arrived = api.getIntervention(enRoute.id)!;
-      const result = api.transition(arrived.id, 'complete');
-      expect(result).not.toBeNull();
-      expect(result!.intervention.status).toBe(IS.COMPLETED);
-    });
-
-    it('clears delay on completion', () => {
-      const data = api.getTodayInterventions()!;
-      const withDelay = data.interventions.find(i => i.delayMinutes !== undefined)!;
-      expect(withDelay.delayMinutes).toBeGreaterThan(0);
-
-      api.transition(withDelay.id, 'arrived');
-      const arrived = api.getIntervention(withDelay.id)!;
-      api.transition(arrived.id, 'complete');
-      const completed = api.getIntervention(withDelay.id)!;
-      expect(completed.delayMinutes).toBeUndefined();
-      expect(completed.delayReason).toBeUndefined();
-    });
-  });
-
-  describe('reportDelay', () => {
-    it('sets delayMinutes, delayReason, and computes delayEta', () => {
-      const data = api.getTodayInterventions()!;
-      const scheduled = data.interventions.find(i => i.status === IS.SCHEDULED)!;
-      const result = api.reportDelay({
-        interventionId: scheduled.id,
-        delayMinutes: 30,
-        delayReason: 'Traffic',
-      });
-      expect(result).not.toBeNull();
-      expect(result!.intervention.delayMinutes).toBe(30);
-      expect(result!.intervention.delayReason).toBe('Traffic');
-      expect(result!.intervention.delayEta).toBeDefined();
-    });
-
-    it('returns null for unknown intervention', () => {
-      const result = api.reportDelay({
-        interventionId: 'nonexistent',
-        delayMinutes: 15,
-        delayReason: 'Test',
-      });
-      expect(result).toBeNull();
-    });
-  });
-});
-
-describe('ACTION_TO_STATUS mapping', () => {
-  it('maps en_route to EN_ROUTE', () => {
-    expect(ACTION_TO_STATUS['en_route']).toBe('EN_ROUTE');
-  });
-
-  it('maps arrived to ARRIVED', () => {
-    expect(ACTION_TO_STATUS['arrived']).toBe('ARRIVED');
-  });
-
-  it('maps complete to COMPLETED', () => {
-    expect(ACTION_TO_STATUS['complete']).toBe('COMPLETED');
-  });
-
-  it('maps cancel to CANCELLED', () => {
-    expect(ACTION_TO_STATUS['cancel']).toBe('CANCELLED');
-  });
-
-  it('maps stop_route back to SCHEDULED', () => {
-    expect(ACTION_TO_STATUS['stop_route']).toBe('SCHEDULED');
-  });
-});
-
-describe('VALID_TRANSITIONS', () => {
-  it('allows en_route, cancel, stop_route from SCHEDULED', () => {
-    expect(VALID_TRANSITIONS['SCHEDULED']).toEqual(['en_route', 'cancel', 'stop_route']);
-  });
-
-  it('allows arrived, cancel, stop_route from EN_ROUTE', () => {
-    expect(VALID_TRANSITIONS['EN_ROUTE']).toEqual(['arrived', 'cancel', 'stop_route']);
-  });
-
-  it('allows complete, cancel from ARRIVED', () => {
-    expect(VALID_TRANSITIONS['ARRIVED']).toEqual(['complete', 'cancel']);
-  });
-
-  it('allows no transitions from COMPLETED', () => {
-    expect(VALID_TRANSITIONS['COMPLETED']).toEqual([]);
-  });
-
-  it('allows no transitions from CANCELLED', () => {
-    expect(VALID_TRANSITIONS['CANCELLED']).toEqual([]);
-  });
-});
-
-describe('TechApiService', () => {
   let service: TechApiService;
-  let api: TechApi;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(TechApiService);
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    http = TestBed.inject(HttpTestingController);
     api = TestBed.inject(TechApi);
+    service = TestBed.inject(TechApiService);
   });
 
-  describe('performAction with optimistic UI and rollback', () => {
-    it('returns success result on valid transition', async () => {
-      const data = api.getTodayInterventions()!;
-      const enRoute = data.interventions.find(i => i.status === IS.EN_ROUTE)!;
-      const result = await firstValueFrom(service.performAction(enRoute.id, 'arrived'));
-      expect(result.success).toBe(true);
-      expect(result.rolledBack).toBe(false);
-      expect(result.intervention.status).toBe(IS.ARRIVED);
-    });
+  afterEach(() => http.verify());
 
-    it('optimistic state reflects new status before API responds', async () => {
-      const data = api.getTodayInterventions()!;
-      const scheduled = data.interventions.find(i => i.status === IS.SCHEDULED)!;
-      const result = await firstValueFrom(service.performAction(scheduled.id, 'en_route'));
-      expect(result.optimistic).toBeDefined();
-      expect(result.optimistic!.status).toBe(IS.EN_ROUTE);
-    });
-
-    it('rolls back on error when transition fails', async () => {
-      // Try to perform a transition on a nonexistent intervention
-      const result = await firstValueFrom(service.performAction('nonexistent', 'en_route'));
-      expect(result.success).toBe(false);
-      expect(result.rolledBack).toBe(true);
-    });
+  it('fetchToday GETs /api/tech/interventions/today and maps rows', async () => {
+    const p = firstValueFrom(service.fetchToday());
+    http.expectOne('/api/tech/interventions/today').flush({ date: '2026-11-09', interventions: [row] });
+    const res = await p;
+    expect(res.date).toBe('2026-11-09');
+    expect(res.interventions[0].customerName).toBe('Marie Dupont');
   });
 
-  describe('reportDelay', () => {
-    it('successfully reports delay', async () => {
-      const data = api.getTodayInterventions()!;
-      const scheduled = data.interventions.find(i => i.status === IS.SCHEDULED)!;
-      const result = await firstValueFrom(service.reportDelay(scheduled.id, 15, 'Traffic'));
-      expect(result.success).toBe(true);
-      expect(result.rolledBack).toBe(false);
-      expect(result.intervention.delayMinutes).toBe(15);
-    });
-
-    it('rolls back on error for unknown intervention', async () => {
-      const result = await firstValueFrom(service.reportDelay('nonexistent', 30, 'Test'));
-      expect(result.success).toBe(false);
-      expect(result.rolledBack).toBe(true);
-    });
+  it('fetchIntervention uses the detail customer', async () => {
+    const p = firstValueFrom(service.fetchIntervention('i1'));
+    http.expectOne('/api/tech/interventions/i1').flush({ intervention: { ...row, customer: undefined }, timeline: [], customer: row.customer });
+    expect((await p).customerName).toBe('Marie Dupont');
   });
 
-  describe('fetchToday', () => {
-    it('returns today data', async () => {
-      const result = await firstValueFrom(service.fetchToday());
-      expect(result.interventions.length).toBeGreaterThan(0);
-    });
+  it('performAction PATCHes (204, no body) then re-reads server state', async () => {
+    const p = firstValueFrom(service.performAction('i1', 'en_route'));
+    const patch = http.expectOne('/api/tech/interventions/i1/en-route');
+    expect(patch.request.method).toBe('PATCH');
+    patch.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne('/api/tech/interventions/i1').flush({ intervention: { ...row, status: IS.EN_ROUTE }, customer: row.customer });
+    const res = await p;
+    expect(res.success).toBe(true);
+    expect(res.intervention?.status).toBe(IS.EN_ROUTE);
   });
 
-  describe('fetchIntervention', () => {
-    it('returns intervention by id', async () => {
-      const data = api.getTodayInterventions()!;
-      const firstId = data.interventions[0].id;
-      const result = await firstValueFrom(service.fetchIntervention(firstId));
-      expect(result.id).toBe(firstId);
+  it.each([
+    ['arrived', 'arrived'],
+    ['complete', 'complete'],
+    ['stop_route', 'stop'],
+  ] as const)('%s maps to PATCH .../%s', async (action, path) => {
+    const p = firstValueFrom(service.performAction('i1', action));
+    http.expectOne(`/api/tech/interventions/i1/${path}`).flush(null, { status: 409, statusText: 'Conflict' });
+    const res = await p;
+    expect(res).toMatchObject({ success: false, rolledBack: true });
+  });
+
+  it('reportDelay PATCHes delay body then re-reads', async () => {
+    const p = firstValueFrom(service.reportDelay('i1', 15, 'Traffic'));
+    const patch = http.expectOne('/api/tech/interventions/i1/delay');
+    expect(patch.request.body).toEqual({ delayMinutes: 15, delayReason: 'Traffic' });
+    patch.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne('/api/tech/interventions/i1').flush({
+      intervention: { ...row, delayMinutes: 15, delayReason: 'Traffic' },
+      customer: row.customer,
+    });
+    expect((await p).intervention?.delayEta).toBe('12:15');
+  });
+
+  describe('sendLocation', () => {
+    const fix = { lat: 1, lng: 2, accuracy: 10, timestamp: Date.UTC(2026, 10, 9, 10, 0, 0) };
+
+    it('POSTs an ISO timestamp and resolves ok on 202', async () => {
+      const p = api.sendLocation('i1', fix);
+      const req = http.expectOne('/api/tech/interventions/i1/location');
+      expect(req.request.body).toEqual({ lat: 1, lng: 2, accuracy: 10, timestamp: '2026-11-09T10:00:00.000Z' });
+      req.flush({}, { status: 202, statusText: 'Accepted' });
+      expect(await p).toBe('ok');
     });
 
-    it('throws for nonexistent id', async () => {
-      await expect(firstValueFrom(service.fetchIntervention('nonexistent'))).rejects.toThrow();
+    it('resolves conflict on 409', async () => {
+      const p = api.sendLocation('i1', fix);
+      http.expectOne('/api/tech/interventions/i1/location').flush({}, { status: 409, statusText: 'Conflict' });
+      expect(await p).toBe('conflict');
+    });
+
+    it.each([404, 500])('resolves error (not conflict) on %s', async status => {
+      const p = api.sendLocation('i1', fix);
+      http.expectOne('/api/tech/interventions/i1/location').flush({}, { status, statusText: 'x' });
+      expect(await p).toBe('error');
     });
   });
 });

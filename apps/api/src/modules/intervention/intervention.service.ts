@@ -200,9 +200,25 @@ export class InterventionService {
     return this.repository.list(businessId, { status: parseStatus(status), technicianMembershipId: membershipId });
   }
 
-  async getMyIntervention(businessId: string, interventionId: string, userId: string): Promise<InterventionWithTimeline> {
-    await this.requireAssigned(businessId, interventionId, userId);
-    return this.getIntervention(businessId, interventionId);
+  /** Today's (server-local day) interventions of the calling technician, with customer contact data. */
+  async getMyToday(businessId: string, userId: string, now: Date = new Date()) {
+    const membershipId = await this.requireTechnicianMembership(businessId, userId);
+    const from = new Date(now);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+    const interventions = await this.repository.listForTechnicianWithCustomer(businessId, membershipId, from, to);
+    const date = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`;
+    return { date, interventions };
+  }
+
+  async getMyIntervention(businessId: string, interventionId: string, userId: string) {
+    const intervention = await this.requireAssigned(businessId, interventionId, userId);
+    const [timeline, customer] = await Promise.all([
+      this.repository.listEvents(interventionId, businessId),
+      this.repository.findCustomer(intervention.customerId, businessId),
+    ]);
+    return { intervention, timeline, customer };
   }
 
   async enRouteIntervention(businessId: string, interventionId: string, userId: string) {
