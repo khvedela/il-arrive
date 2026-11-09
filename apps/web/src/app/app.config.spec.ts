@@ -16,19 +16,19 @@ describe('restoreSession (app initializer)', () => {
           }, 5);
         }),
     );
-    await restoreSession({ bootstrap } as Auth, '/app/interventions');
+    await restoreSession({ bootstrap } as Auth);
     expect(bootstrap).toHaveBeenCalled();
     expect(done).toBe(true);
   });
 
   it('swallows a 401 so the app still starts', async () => {
     const auth: Auth = { bootstrap: () => throwError(() => ({ status: 401 })) };
-    await expect(restoreSession(auth, '/app')).resolves.toBeUndefined();
+    await expect(restoreSession(auth)).resolves.toBeUndefined();
   });
 
-  it('skips bootstrap on the /tech PWA', async () => {
+  it.each(['/tech', '/tech/i/42'])('restores the session on a cold load of %s', async () => {
     const bootstrap = jest.fn(() => of({}));
-    await restoreSession({ bootstrap } as Auth, '/tech/today');
-    expect(bootstrap).not.toHaveBeenCalled();
+    await restoreSession({ bootstrap } as Auth);
+    expect(bootstrap).toHaveBeenCalledTimes(1);
   });
 });

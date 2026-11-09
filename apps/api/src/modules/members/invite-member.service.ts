@@ -4,6 +4,9 @@ import { MailProvider } from '../mail/mail.provider';
 import { digestToken, generateToken } from '../../common/tokens';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
+const escapeHtml = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 @Injectable()
 export class InviteMemberService {
   constructor(
@@ -68,7 +71,7 @@ export class InviteMemberService {
     await this.mailProvider.send({
       to: email,
       subject: `Invitation pour ${businessName}`,
-      html: `<p>Bonjour,</p><p>Vous avez été invité à rejoindre ${businessName}.</p><p><a href="${inviteLink}">Cliquez ici pour accepter l'invitation</a></p><p>Ce lien expirera dans 7 jours.</p>`,
+      html: `<p>Bonjour,</p><p>Vous avez été invité à rejoindre ${escapeHtml(businessName)}.</p><p><a href="${inviteLink}">Cliquez ici pour accepter l'invitation</a></p><p>Ce lien expirera dans 7 jours.</p>`,
       text: `Bonjour,\n\nVous avez été invité à rejoindre ${businessName}.\n\nCliquez sur ce lien pour accepter l'invitation: ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
       idempotencyKey: `invite-${invitation.id}`,
     });

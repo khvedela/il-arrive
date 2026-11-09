@@ -9,16 +9,14 @@ import { AuthHttpInterceptor } from './core/auth-api.service';
 import { AuthService } from './core/auth.service';
 
 /** Restore the session before the first navigation so guards see the real auth state. */
-export function restoreSession(auth: Pick<AuthService, 'bootstrap'>, pathname: string): Promise<unknown> {
-  // The technician PWA (/tech) runs on its own mock API and must not trigger the dashboard auth bootstrap.
-  if (pathname.startsWith('/tech')) return Promise.resolve();
+export function restoreSession(auth: Pick<AuthService, 'bootstrap'>): Promise<unknown> {
   return firstValueFrom(auth.bootstrap()).catch(() => undefined);
 }
 
 export const appConfig: { providers: (Provider | EnvironmentProviders)[] } = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideAppInitializer(() => restoreSession(inject(AuthService), location.pathname)),
+    provideAppInitializer(() => restoreSession(inject(AuthService))),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptorsFromDi()),
     { provide: HTTP_INTERCEPTORS, useClass: AuthHttpInterceptor, multi: true },

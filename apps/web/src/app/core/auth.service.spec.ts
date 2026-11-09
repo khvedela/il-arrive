@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { NEVER, of } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 
 
 import { AuthService, homeRouteFor } from './auth.service';
-import { notTechnicianGuard } from './auth.guard';
+import { authGuard, notTechnicianGuard } from './auth.guard';
+import { restoreSession } from '../app.config';
 import { AuthApi } from './auth-api.service';
 import { MeResponse } from '@il-arrive/contracts';
 
@@ -134,6 +135,19 @@ describe('AuthService', () => {
     mockApi.getMe.mockReturnValue(of(mockMe));
     service.bootstrap().subscribe();
     expect(TestBed.runInInjectionContext(() => notTechnicianGuard({} as never, {} as never))).toBe(true);
+  });
+
+  it('cold /tech: authGuard passes after session restore, redirects to /login without one', async () => {
+    const mockApi = TestBed.inject(AuthApi) as unknown as MockAuthApi;
+    mockApi.getMe.mockReturnValue(of(techMe));
+    await restoreSession(service);
+    expect(TestBed.runInInjectionContext(() => authGuard({} as never, {} as never))).toBe(true);
+
+    service['_me'].set(null);
+    mockApi.getMe.mockReturnValue(throwError(() => ({ status: 401 })));
+    await restoreSession(service);
+    expect(TestBed.runInInjectionContext(() => authGuard({} as never, {} as never))).toBe(false);
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 
   it('logout should clear me and navigate to /login', () => {
