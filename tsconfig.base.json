@@ -9,7 +9,13 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "incremental": true
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@il-arrive/ui": ["libs/ui/src/public-api.ts"],
+      "@il-arrive/ui/*": ["libs/ui/src/*"],
+      "@il-arrive/contracts": ["libs/contracts/src/index.ts"]
+    }
   },
   "exclude": ["node_modules", "dist", "build"]
 }
