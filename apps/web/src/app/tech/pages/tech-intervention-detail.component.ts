@@ -798,7 +798,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
   private runAction(action: TechAction, share: boolean) {
     const inv = this.intervention();
     if (!inv || this.loading()) return;
-    if (action !== 'en_route') this.location.stop(action === 'arrived' || action === 'complete' || action === 'cancel' || action === 'stop_route' ? action : 'user');
+    if (action !== 'en_route') this.location.stop(action === 'arrived' || action === 'complete' || action === 'stop_route' ? action : 'user');
 
     this.loading.set(true);
     const optimisticState = { ...inv, status: ACTION_TO_STATUS[action] };
@@ -809,7 +809,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         this.loading.set(false);
-        if (result.success) {
+        if (result.success && result.intervention) {
           this.intervention.set(result.intervention);
           if (action === 'en_route' && share) this.location.start(inv.id);
           const label = this.getActionSuccessLabel(action);
@@ -833,7 +833,6 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
       en_route: 'Statut envoyé — en route',
       arrived: 'Statut envoyé — arrivé',
       complete: 'Intervention terminée',
-      cancel: 'Intervention annulée',
       stop_route: 'Partage de position arrêté',
     };
     return labels[action];
@@ -852,7 +851,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
     if (!inv) return;
 
     const { lat, lng } = inv;
-    const daddr = `${lat},${lng}`;
+    const daddr = lat != null && lng != null ? `${lat},${lng}` : encodeURIComponent(inv.addressLabel);
     let url = '';
 
     switch (provider) {
@@ -863,7 +862,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
         url = `https://www.google.com/maps/dir/?api=1&destination=${daddr}`;
         break;
       case 'waze':
-        url = `waze://?ll=${daddr}&navigate=yes`;
+        url = lat != null && lng != null ? `waze://?ll=${daddr}&navigate=yes` : `waze://?q=${daddr}&navigate=yes`;
         break;
     }
 
@@ -901,7 +900,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         this.loading.set(false);
-        if (result.success) {
+        if (result.success && result.intervention) {
           this.intervention.set(result.intervention);
           this.closeDelayModal();
           this.toast.success('Retard signalé au client');

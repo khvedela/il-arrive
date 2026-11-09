@@ -42,7 +42,7 @@ describe('LocationSharingService', () => {
     expect(api.sendLocation).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['arrived', 'complete', 'cancel', 'stop_route', 'user', 'logout'] as const)(
+  it.each(['arrived', 'complete', 'stop_route', 'user', 'logout'] as const)(
     'stop(%s) clears watch and sends nothing afterwards',
     async reason => {
       svc.start('int-1');

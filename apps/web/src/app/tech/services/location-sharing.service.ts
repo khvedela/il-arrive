@@ -3,7 +3,7 @@ import { LocationThrottle, type LocationFix } from './location-throttle';
 import { TechApi } from './tech-api.service';
 
 export type SharingState = 'idle' | 'sharing' | 'denied' | 'unsupported';
-export type StopReason = 'arrived' | 'complete' | 'cancel' | 'stop_route' | 'user' | 'conflict' | 'logout';
+export type StopReason = 'arrived' | 'complete' | 'stop_route' | 'user' | 'conflict' | 'logout';
 
 interface WakeLockSentinelLike {
   release(): Promise<void>;
