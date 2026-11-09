@@ -79,6 +79,7 @@ describe('technician access (solo-pro owner flow)', () => {
     expect(from).toEqual(new Date(2026, 10, 9));
     expect(to).toEqual(new Date(2026, 10, 10));
     expect(res.interventions).toBe(rows);
+    expect(res.date).toBe('2026-11-09');
   });
 
   it('getMyToday rejects a user without technician membership', async () => {

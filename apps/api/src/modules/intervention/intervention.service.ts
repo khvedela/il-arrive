@@ -208,7 +208,8 @@ export class InterventionService {
     const to = new Date(from);
     to.setDate(to.getDate() + 1);
     const interventions = await this.repository.listForTechnicianWithCustomer(businessId, membershipId, from, to);
-    return { date: from.toISOString().slice(0, 10), interventions };
+    const date = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`;
+    return { date, interventions };
   }
 
   async getMyIntervention(businessId: string, interventionId: string, userId: string) {
