@@ -41,6 +41,7 @@
               "../../libs/ui/src/tokens.css",
               "src/styles.scss"
             ],
+            "assets": [{ "glob": "**/*", "input": "public" }],
             "scripts": []
           },
           "configurations": {
@@ -52,7 +53,8 @@
                   "maximumError": "1MB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "serviceWorker": "ngsw-config.json"
             },
             "development": {
               "optimization": false,

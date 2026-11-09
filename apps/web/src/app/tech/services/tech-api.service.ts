@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
 import type { InterventionStatus } from '@il-arrive/contracts';
 import type { TechIntervention, TechTodayResponse, TransitionResult } from '../models/intervention';
-import { of, defer } from 'rxjs';
+import { of, defer, type Observable } from 'rxjs';
 import { map, catchError, delay } from 'rxjs/operators';
 
 export type TechAction = 'en_route' | 'arrived' | 'complete' | 'cancel' | 'stop_route';
@@ -12,7 +12,7 @@ export const ACTION_TO_STATUS: Record<TechAction, InterventionStatus> = {
   arrived: IS.ARRIVED,
   complete: IS.COMPLETED,
   cancel: IS.CANCELLED,
-  stop_route: IS.EN_ROUTE,
+  stop_route: IS.SCHEDULED,
 };
 
 export const VALID_TRANSITIONS: Record<InterventionStatus, TechAction[]> = {
@@ -32,6 +32,14 @@ function applyStatus(intervention: TechIntervention, status: InterventionStatus)
     delete base.delayEta;
   }
   return base;
+}
+
+export interface ActionResult {
+  intervention: TechIntervention;
+  success: boolean;
+  optimistic: TechIntervention | null;
+  rolledBack: boolean;
+  error?: unknown;
 }
 
 export interface TechApiConfig {
@@ -236,7 +244,7 @@ export class TechApiService {
     );
   }
 
-  performAction(interventionId: string, action: TechAction, reason?: string) {
+  performAction(interventionId: string, action: TechAction, reason?: string): Observable<ActionResult> {
     const prevState = this.api.getIntervention(interventionId);
     if (!prevState) {
       return of({ intervention: null as unknown as TechIntervention, success: false, rolledBack: true, optimistic: null, error: new Error('Intervention not found') });
@@ -267,7 +275,7 @@ export class TechApiService {
     );
   }
 
-  reportDelay(interventionId: string, delayMinutes: number, reason: string) {
+  reportDelay(interventionId: string, delayMinutes: number, reason: string): Observable<{ intervention: TechIntervention; success: boolean; rolledBack: boolean; error?: unknown }> {
     const prevState = this.api.getIntervention(interventionId);
     if (!prevState) {
       return of({ intervention: null as unknown as TechIntervention, success: false, rolledBack: true, error: new Error('Intervention not found') });

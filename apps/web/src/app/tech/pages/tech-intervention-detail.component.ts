@@ -8,25 +8,30 @@ import {
   IaToastService,
   IaTextareaComponent,
 } from '@il-arrive/ui';
+import { LocationSharingService } from '../services/location-sharing.service';
+import { OnlineStatusService } from '../services/online-status.service';
 import { TechApiService, ACTION_TO_STATUS, type TechAction } from '../services/tech-api.service';
 import type { TechIntervention } from '../models/intervention';
 import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
 import { takeUntil, Subject } from 'rxjs';
 
+type ButtonAction = TechAction | 'delay';
+
 interface ActionButton {
   label: string;
-  action: TechAction;
+  action: ButtonAction;
   variant: 'primary' | 'secondary';
 }
 
 const ACTION_BUTTONS: Record<string, ActionButton[]> = {
   SCHEDULED: [
     { label: 'Je suis en route', action: 'en_route', variant: 'primary' },
-    { label: "Prévenir d'un retard", action: 'cancel', variant: 'secondary' },
+    { label: "Prévenir d'un retard", action: 'delay', variant: 'secondary' },
   ],
   EN_ROUTE: [
     { label: 'Je suis arrivé', action: 'arrived', variant: 'primary' },
-    { label: "Prévenir d'un retard", action: 'cancel', variant: 'secondary' },
+    { label: "Prévenir d'un retard", action: 'delay', variant: 'secondary' },
+    { label: 'Annuler le trajet', action: 'stop_route', variant: 'secondary' },
   ],
   ARRIVED: [
     { label: 'Intervention terminée', action: 'complete', variant: 'primary' },
@@ -145,21 +150,6 @@ function formatDateShort(dateStr: string): string {
             </ia-card>
           }
 
-          @if (intervention()!.status === IS.EN_ROUTE) {
-            <ia-card variant="tinted" [header]="false">
-              <div class="tech-detail__location-card">
-                <span class="tech-detail__pulse-dot"></span>
-                <div>
-                  <p class="tech-detail__location-text">Position partagée avec le client</p>
-                  @if (intervention()!.delayEta) {
-                    <p class="tech-detail__location-meta">ETA estimé {{ intervention()!.delayEta }}</p>
-                  }
-                </div>
-                <ia-button label="Arrêter" variant="ghost" size="sm" (clicked)="stopLocation()" />
-              </div>
-            </ia-card>
-          }
-
           @if (intervention()!.delayMinutes) {
             <div class="tech-detail__delay-banner">
               <p>Retard signalé — +{{ intervention()!.delayMinutes }} min{{ intervention()!.delayEta ? ' (vers ' + intervention()!.delayEta + ')' : '' }}</p>
@@ -170,6 +160,31 @@ function formatDateShort(dateStr: string): string {
           }
         </section>
 
+        @if (!online()) {
+          <div class="tech-detail__offline" role="status">
+            Hors ligne — consultation seule. Les actions sont désactivées jusqu'au retour du réseau.
+          </div>
+        }
+
+        @if (sharing() === 'sharing') {
+          <div class="tech-detail__sharing" role="status">
+            <span>Position partagée avec le client — uniquement pendant ce trajet.</span>
+            <ia-button label="Arrêter" variant="secondary" size="action" (clicked)="stopSharing()" />
+          </div>
+        } @else if (sharing() === 'denied') {
+          <div class="tech-detail__sharing tech-detail__sharing--info" role="status">
+            Position non partagée : le client verra votre statut, sans la carte.
+          </div>
+        } @else if (sharing() === 'unsupported') {
+          <div class="tech-detail__sharing tech-detail__sharing--info" role="status">
+            Géolocalisation indisponible sur cet appareil : le client verra votre statut, sans la carte.
+          </div>
+        } @else if (stoppedByUser() && intervention()!.status === IS.EN_ROUTE) {
+          <div class="tech-detail__sharing tech-detail__sharing--info" role="status">
+            Partage de position arrêté. Le client voit toujours votre statut « en route ».
+          </div>
+        }
+
         @if (actionButtons().length > 0) {
           <div class="tech-detail__action-bar">
             <div class="tech-detail__hairline"></div>
@@ -179,11 +194,28 @@ function formatDateShort(dateStr: string): string {
                 [variant]="btn.variant === 'primary' ? 'primary' : 'secondary'"
                 size="action"
                 [loading]="loading()"
+                [disabled]="!online()"
                 (clicked)="onAction(btn.action)"
               />
             }
           </div>
         }
+
+        <ia-modal
+          [isOpen]="consentModalOpen()"
+          title="Partager votre position ?"
+          [maxWidth]="'100%'"
+          (closed)="consentModalOpen.set(false)"
+        >
+          <div class="tech-detail__consent">
+            <p>Votre position est partagée avec le client <strong>uniquement pendant ce trajet</strong>, tant que cette page reste ouverte.</p>
+            <p>Le partage s'arrête dès que vous êtes arrivé, annulez le trajet ou appuyez sur « Arrêter ». Aucune position n'est suivie en arrière-plan ni conservée après le trajet.</p>
+            <div ia-modal-footer class="tech-detail__delay-footer">
+              <ia-button label="Statut seulement" variant="ghost" size="action" (clicked)="confirmEnRoute(false)" />
+              <ia-button label="Partager ma position" variant="primary" size="action" (clicked)="confirmEnRoute(true)" />
+            </div>
+          </div>
+        </ia-modal>
 
         <ia-modal
           [isOpen]="delayModalOpen()"
@@ -257,6 +289,15 @@ function formatDateShort(dateStr: string): string {
     </div>
   `,
   styles: [`
+    .tech-detail__offline, .tech-detail__sharing {
+      margin: 8px 16px; padding: 12px 16px; border-radius: 12px; min-height: 48px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: 14px;
+    }
+    .tech-detail__offline { background: var(--ia-color-warning-subtle, #fff4d6); color: var(--ia-color-text, inherit); }
+    .tech-detail__sharing { background: var(--ia-color-success-subtle, #dff5e6); color: var(--ia-color-text, inherit); }
+    .tech-detail__sharing--info { background: var(--ia-color-surface-muted, #eef0f3); }
+    .tech-detail__consent { padding: 0 16px 16px; font-size: 15px; line-height: 1.5; }
     :host {
       display: block;
       max-width: var(--tech-column-max);
@@ -655,6 +696,11 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private techApi = inject(TechApiService);
   private toast = inject(IaToastService);
+  private location = inject(LocationSharingService);
+  protected online = inject(OnlineStatusService).online;
+  protected sharing = this.location.state;
+  protected stoppedByUser = computed(() => this.location.lastStopReason() === 'user');
+  consentModalOpen = signal(false);
   private destroy$ = new Subject<void>();
   protected IS = IS;
 
@@ -724,14 +770,35 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
     this.router.navigate(['/tech']);
   }
 
-  onAction(action: TechAction) {
-    const inv = this.intervention();
-    if (!inv || this.loading()) return;
+  stopSharing() {
+    this.location.stop('user');
+    this.toast.info('Partage de position arrêté');
+  }
 
-    if (action === 'cancel' && (inv.status === IS.SCHEDULED || inv.status === IS.EN_ROUTE)) {
+  confirmEnRoute(share: boolean) {
+    this.consentModalOpen.set(false);
+    this.runAction('en_route', share);
+  }
+
+  onAction(action: ButtonAction) {
+    const inv = this.intervention();
+    if (!inv || this.loading() || !this.online()) return;
+
+    if (action === 'delay') {
       this.delayModalOpen.set(true);
       return;
     }
+    if (action === 'en_route') {
+      this.consentModalOpen.set(true);
+      return;
+    }
+    this.runAction(action, false);
+  }
+
+  private runAction(action: TechAction, share: boolean) {
+    const inv = this.intervention();
+    if (!inv || this.loading()) return;
+    if (action !== 'en_route') this.location.stop(action === 'arrived' || action === 'complete' || action === 'cancel' || action === 'stop_route' ? action : 'user');
 
     this.loading.set(true);
     const optimisticState = { ...inv, status: ACTION_TO_STATUS[action] };
@@ -744,6 +811,7 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         if (result.success) {
           this.intervention.set(result.intervention);
+          if (action === 'en_route' && share) this.location.start(inv.id);
           const label = this.getActionSuccessLabel(action);
           this.toast.success(label);
         } else {
@@ -848,10 +916,6 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
         this.toast.error('Erreur réseau. Retard non envoyé.');
       },
     });
-  }
-
-  stopLocation() {
-    this.toast.info('Partage de position arrêté');
   }
 
   ngOnDestroy() {

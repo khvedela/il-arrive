@@ -121,8 +121,8 @@ describe('ACTION_TO_STATUS mapping', () => {
     expect(ACTION_TO_STATUS['cancel']).toBe('CANCELLED');
   });
 
-  it('maps stop_route to EN_ROUTE', () => {
-    expect(ACTION_TO_STATUS['stop_route']).toBe('EN_ROUTE');
+  it('maps stop_route back to SCHEDULED', () => {
+    expect(ACTION_TO_STATUS['stop_route']).toBe('SCHEDULED');
   });
 });
 
