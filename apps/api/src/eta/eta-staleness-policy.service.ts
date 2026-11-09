@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ETAStalenessPolicy, FixValidationResult, PositionRounder, ETAStatus, SessionExpiry } from './eta-policy.interface';
+import { ETAStalenessPolicy, FixValidationResult, ETAStatus, SessionExpiry } from './eta-policy.interface';
 
 @Injectable()
-export class ETAStalenessPolicyService implements ETAStalenessPolicy, PositionRounder {
+export class ETAStalenessPolicyService implements ETAStalenessPolicy {
   private readonly RECOMPUTE_INTERVAL_S = 60;
   private readonly RECOMPUTE_DISTANCE_M = 500;
   private readonly STALENESS_THRESHOLD_S = 120;
@@ -15,6 +15,10 @@ export class ETAStalenessPolicyService implements ETAStalenessPolicy, PositionRo
       lat: Math.round(lat * ROUND_FACTOR) / ROUND_FACTOR,
       lng: Math.round(lng * ROUND_FACTOR) / ROUND_FACTOR,
     };
+  }
+
+  roundPosition(lat: number, lng: number): { lat: number; lng: number } {
+    return this.round(lat, lng);
   }
 
   validateFix(lat: number, lng: number, accuracy: number, timestamp: Date): FixValidationResult {
@@ -46,7 +50,7 @@ export class ETAStalenessPolicyService implements ETAStalenessPolicy, PositionRo
     }
 
     const ageS = (now.getTime() - lastComputedAt.getTime()) / 1000;
-    if (ageS < this.RECOMPUTE_INTERVAL_S) {
+    if (ageS <= this.RECOMPUTE_INTERVAL_S) {
       return false;
     }
 

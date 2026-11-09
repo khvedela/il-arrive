@@ -1,6 +1,5 @@
 import { Injectable, Module, DynamicModule, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { appEnv } from '../../config/env.validation';
 import { Geocoder } from './geocoder.interface';
 import { BanGeocoder } from './providers/ban-geocoder.provider';
 
@@ -28,7 +27,7 @@ export class GeoConfigService {
   constructor(private configService: ConfigService) {}
 
   getGeocoder(): Geocoder {
-    const provider = this.configService.get<AppEnvironment>('GEOCODING_PROVIDER') || 'ban';
+    const provider = this.configService.get<string>('GEOCODING_PROVIDER') || 'ban';
 
     if (provider === 'ban') {
       return new BanGeocoder();
@@ -37,7 +36,7 @@ export class GeoConfigService {
   }
 
   validateEnvironment(): void {
-    const provider = this.configService.get<AppEnvironment>('GEOCODING_PROVIDER') || 'ban';
+    const provider = this.configService.get<string>('GEOCODING_PROVIDER') || 'ban';
 
     if (provider !== 'ban') {
       throw new Error(`Only BAN geocoding provider is supported in this version`);

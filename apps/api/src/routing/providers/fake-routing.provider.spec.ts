@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { FakeRoutingProvider } from './providers/fake-routing.provider';
-import { RoutingProvider } from '../routing.interface';
+import { FakeRoutingProvider } from './fake-routing.provider';
 
 describe('FakeRoutingProvider', () => {
   let provider: FakeRoutingProvider;
@@ -44,10 +43,9 @@ describe('FakeRoutingProvider', () => {
   it('should return same result regardless of departAt', async () => {
     const from = { lat: 48.8566, lng: 2.3522 };
     const to = { lat: 48.8606, lng: 2.3549 };
-    const departAt = new Date('2026-12-01T10:00:00Z');
 
     const result1 = await provider.route(from, to);
-    const result2 = await provider.route(from, to, { departAt });
+    const result2 = await provider.route(from, to);
 
     expect(result1).toEqual(result2);
   });

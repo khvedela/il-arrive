@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { TomTomRoutingProvider } from './tomtom-routing.provider';
-import { RoutingProvider } from '../routing.interface';
 
 describe('TomTomRoutingProvider', () => {
   let provider: TomTomRoutingProvider;

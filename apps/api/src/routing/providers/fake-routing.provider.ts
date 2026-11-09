@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { RoutingProvider, Point, RouteResult } from './routing.interface';
+import { RoutingProvider, Point, RouteResult } from '../routing.interface';
 
 @Injectable()
 export class FakeRoutingProvider implements RoutingProvider {
   private readonly SPEED_KMH = 30;
   private readonly FACTOR = 1.4;
 
-  async route(from: Point, to: Point, options?: { departAt?: Date }): Promise<RouteResult> {
+  async route(from: Point, to: Point): Promise<RouteResult> {
     const R = 6371;
     const dLat = (to.lat - from.lat) * (Math.PI / 180);
     const dLng = (to.lng - from.lng) * (Math.PI / 180);

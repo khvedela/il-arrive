@@ -1,6 +1,5 @@
 import { Injectable, Module, DynamicModule, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { appEnv, AppEnvironment } from '../../config/env.validation';
 import { RoutingProvider } from './routing.interface';
 import { FakeRoutingProvider } from './providers/fake-routing.provider';
 import { TomTomRoutingProvider } from './providers/tomtom-routing.provider';
@@ -25,17 +24,17 @@ export class RoutingConfigService {
   constructor(private configService: ConfigService) {}
 
   getProvider(): RoutingProvider {
-    const env = this.configService.get<AppEnvironment>('ROUTING_PROVIDER') || 'fake';
+    const provider = this.configService.get<string>('ROUTING_PROVIDER') || 'fake';
 
-    if (env === 'tomtom') {
+    if (provider === 'tomtom') {
       return new TomTomRoutingProvider(this.configService);
     }
     return new FakeRoutingProvider();
   }
 
   validateEnvironment(): void {
-    const env = this.configService.get<AppEnvironment>('NODE_ENV') || 'development';
-    const provider = this.configService.get<AppEnvironment>('ROUTING_PROVIDER') || 'fake';
+    const env = this.configService.get<string>('NODE_ENV') || 'development';
+    const provider = this.configService.get<string>('ROUTING_PROVIDER') || 'fake';
 
     if (provider === 'fake' && env === 'production') {
       throw new Error('Fake routing provider is not allowed in production');

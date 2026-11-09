@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Geocoder, GeocodingResult } from './geocoder.interface';
+import { Geocoder, GeocodingResult } from '../geocoder.interface';
 
 interface BanResponse {
   type: string;

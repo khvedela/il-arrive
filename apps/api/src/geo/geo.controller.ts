@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Get, Controller, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { Geocoder, GeocodingResult } from './geocoder.interface';
+import { Geocoder } from './geocoder.interface';
 import { GeocodingResponse } from './geo.controller.interface';
 
 @Injectable()
@@ -17,13 +17,13 @@ export class GeoController {
     try {
       const results = await this.geocoder.search(q);
 
-      return results.map((r) => ({
+      return results.map((r: GeocodingResponse) => ({
         label: r.label,
         lat: r.lat,
         lng: r.lng,
         score: r.score,
       }));
-    } catch (error) {
+    } catch {
       throw new HttpException('Geocoding service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     }
   }

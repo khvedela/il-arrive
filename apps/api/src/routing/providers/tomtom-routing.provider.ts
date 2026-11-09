@@ -2,23 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RoutingProvider, Point, RouteResult } from '../routing.interface';
 
-interface TomTomRequest {
-  jsonp?: string;
-  key: string;
-  travelMode?: string;
-  type?: string;
-  latency?: number;
-  arrivalTime?: string;
-  optimize?: string;
-  routeType?: string;
-  traffic?: string;
-  flags?: string;
-  language?: string;
-  maxAlternatives?: string;
-  index?: string;
-  groupArrivalTime?: string;
-}
-
 interface TomTomResponse {
   routes: {
     summary: {

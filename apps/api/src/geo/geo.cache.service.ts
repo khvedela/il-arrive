@@ -1,5 +1,4 @@
-import { Injectable, Inject, CacheModuleOptions, CacheInterceptor } from '@nestjs/common';
-import { Geocoder, GeocodingResult } from './geocoder.interface';
+import { Injectable } from '@nestjs/common';
 import { GeocodingResponse } from './geo.controller.interface';
 
 export interface CacheEntry {

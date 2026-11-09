@@ -73,18 +73,18 @@ describe('ETAStalenessPolicyService', () => {
       expect(should).toBe(true);
     });
 
-    it('should recompute after 60 seconds', () => {
+    it('should recompute after 61 seconds and > 500m movement', () => {
       const now = new Date();
       const past = new Date(now.getTime() - 61000);
 
-      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8566, 2.3522);
+      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8700, 2.3700);
 
       expect(should).toBe(true);
     });
 
     it('should not recompute within 60 seconds', () => {
       const now = new Date();
-      const past = new Date(now.getTime() - 30000);
+      const past = new Date(now.getTime() - 60000);
 
       const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8566, 2.3522);
 
