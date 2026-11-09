@@ -1,6 +1,6 @@
 import { Component, inject, computed, signal } from '@angular/core';
 import { ChangeDetectionStrategy } from '@angular/core';
-import { FormGroup, FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { IaUIModule } from '@il-arrive/ui';
 

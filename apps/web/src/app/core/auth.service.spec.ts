@@ -1,11 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { NEVER, of } from 'rxjs';
 import { Router } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+
+
 import { AuthService } from './auth.service';
-import { AuthApi, AcceptInvitationResponse } from './auth-api.service';
-import { MeResponse, MeUser, MeMembership } from '@il-arrive/contracts';
+import { AuthApi } from './auth-api.service';
+import { MeResponse } from '@il-arrive/contracts';
 
 const mockMe: MeResponse = {
   user: { id: 'u1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: '0612345678', avatarUrl: null },
@@ -34,7 +34,7 @@ class MockAuthApi {
 
 describe('AuthService', () => {
   let service: AuthService;
-  let router: any;
+  let router: { navigate: jest.Mock };
 
   beforeEach(() => {
     const routerSpy = { navigate: jest.fn() };
@@ -46,7 +46,7 @@ describe('AuthService', () => {
       ],
     });
     service = TestBed.inject(AuthService);
-    router = TestBed.inject(Router) as any;
+    router = TestBed.inject(Router) as unknown as typeof router;
   });
 
   it('should start unauthenticated', () => {

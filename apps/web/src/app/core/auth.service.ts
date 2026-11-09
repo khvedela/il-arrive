@@ -1,8 +1,8 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, from, of, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 import { mergeMap, tap, finalize } from 'rxjs/operators';
-import { AuthApi, AcceptInvitationResponse } from './auth-api.service';
+import { AuthApi } from './auth-api.service';
 import { MeResponse, MeUser, MeMembership, LoginDto, RegisterDto, RequestPasswordResetDto, ResetPasswordDto } from '@il-arrive/contracts';
 
 @Injectable({ providedIn: 'root' })

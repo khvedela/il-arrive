@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
-import { AuthApi, AcceptInvitationResponse, AuthHttpInterceptor } from './auth-api.service';
+import { AuthApi, AuthHttpInterceptor } from './auth-api.service';
 import { LoginDto, RegisterDto, MeResponse, LoginResponse, RegisterResponse } from '@il-arrive/contracts';
 
 const API_URL = '/api';
