@@ -1,5 +1,24 @@
 # SLA-38 review gate
 
+## Re-review: APPROVE WITH NITS
+
+**APPROVED `5596254a01891a630c813480d59d2dd456b73d84`**, the combined candidate containing SLA-36 `f622eff`, SLA-13 `bb1d2e6`, tracking fix `71e112b`, and auth fix `5596254`. The original SHAs alone remain superseded by these corrections. No merge performed; chief owns landing. Documentation-only descendant `8a580b3` was the tested HEAD. This is approval of the bounded auth/PWA/public-page scope, not of separate SLA-37 lifecycle work or deferred MapLibre implementation.
+
+All three major findings below are resolved: registration issues the same session/CSRF cookies as login; `/auth/me` returns shared MeResponse fields and selects the membership matching the authenticated activeBusinessId; tracking defaults to real HTTP/SSE on every host, with fixtures requiring explicit dev-only `?mock=1`. The stream now retains and unsubscribes its actual RxJS subscription. Reviewed the new HTTP auth spec and tracking regressions, author comments on SLA-39/SLA-40, and the prior bounded auth review in `docs/verification/SLA-39-manager-review.md`.
+
+Remaining **minor** findings: (1) `apps/api/src/modules/auth/auth.service.ts:154` derives onboardingCompleted from customer/intervention counts; define/persist real completion semantics before using it as a gate. Current frontend effect does not redirect, and this field does not authorize requests. (2) Consolidate the duplicate public projection types in SLA-20; nested FRESH and top-level LIVE currently work together, so this is nonblocking.
+
+Independent re-verification on this continuation:
+
+- Frozen install **passed** using the existing workspace-local pnpm executable: `OPENSSL_CONF=/dev/null TMPDIR="$PWD/.cache/sla38/tmp" XDG_CACHE_HOME="$PWD/.cache/sla34" .cache/sla34/package/pnpm-native install --frozen-lockfile`. pnpm 12.16.1 verified the lockfile, performed installation and exited successfully. Log: `.cache/sla38/recheck-install.log`. This satisfies the previously unmet install prerequisite.
+- Prisma client regenerated with `OPENSSL_CONF=/dev/null TMPDIR="$PWD/.cache/sla38/tmp" XDG_CACHE_HOME="$PWD/.cache/sla34" node apps/api/node_modules/prisma/build/index.js generate --schema apps/api/prisma/schema.prisma`. An initial API attempt before generation lacked generated model types; it was an unavailable dependency, not a candidate defect. Generation log: `.cache/sla38/recheck-prisma.log`.
+- API: `OPENSSL_CONF=/dev/null TMPDIR="$PWD/.cache/sla38/tmp" node apps/api/node_modules/jest/bin/jest.js --config apps/api/jest.config.js --runInBand --watchman=false`: **17 suites / 144 tests passed**. Log: `.cache/sla38/recheck-api.log`.
+- Track: `OPENSSL_CONF=/dev/null TMPDIR="$PWD/.cache/sla38/tmp" XDG_CACHE_HOME="$PWD/.cache/sla34" .cache/sla34/package/pnpm-native -F track test --runInBand --watchman=false`: **3 suites / 55 tests passed**. Log: `.cache/sla38/recheck-track.log`. An initial direct Node invocation used a nonexistent app-local Jest entry; pnpm resolved its installed shim correctly.
+- Track build rerun **unavailable**: the same environment plus `.cache/sla34/package/pnpm-native -F track build` failed before compilation because Angular tried to stat `/Users/khvedela/Desktop/il-arrive/package.json`, outside this sandbox. Log: `.cache/sla38/recheck-track-build.log`. Author reports successful track build. No fresh browser/live-PG check claimed; prior auth review records the independent PG credential limitation and author isolated-PG evidence.
+- `git diff --check` passed; working tree was clean before this documentation update.
+
+The following original verdict is retained as review history and is superseded by this re-review.
+
 Verdict: **CHANGES REQUIRED** for `f622eff` and `bb1d2e6`. Neither SHA is approved for landing by this review. Reviewed the SLA-36 diff from `102376a` and SLA-13 diff from `87203d3`, plus their auth, tenant and public projection dependencies. No merge or implementation edits made.
 
 1. **Major — registration never establishes the browser session.**
