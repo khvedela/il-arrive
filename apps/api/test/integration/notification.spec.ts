@@ -68,6 +68,10 @@ describe('Notifications (Postgres + Redis)', () => {
   });
 
   afterAll(async () => {
+    // A SENT database row can precede BullMQ finishing its active job. Stop new
+    // work and let active jobs finish before deleting their Redis keys.
+    await queue?.pause();
+    if (queue) await until(async () => (await queue.getActiveCount()) === 0);
     await queue?.obliterate({ force: true });
     await app?.close();
   });
