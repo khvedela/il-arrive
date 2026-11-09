@@ -60,7 +60,8 @@ export class TomTomRoutingProvider implements RoutingProvider {
     }
   }
 
-  async route(from: Point, to: Point, _options?: { departAt?: Date }): Promise<RouteResult> {
+  // TomTom rejects explicit past departAt values, so traffic is always evaluated for "now".
+  async route(from: Point, to: Point): Promise<RouteResult> {
     if (this.circuitBreakerOpen()) {
       throw new Error('TomTom circuit breaker is open');
     }

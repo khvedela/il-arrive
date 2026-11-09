@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- test helpers */
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
