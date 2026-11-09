@@ -6,6 +6,7 @@
     "dev": "ng serve --port 4200",
     "build": "ng build",
     "typecheck": "ng build",
+    "test": "jest",
     "watch": "ng build --watch --configuration development"
   },
   "dependencies": {
@@ -31,6 +32,8 @@
     "@angular-eslint/schematics": "^22.6.0",
     "@angular/cli": "^19.2.0",
     "@angular/compiler-cli": "^19.2.0",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.5.2",
     "jest-preset-angular": "^17.0.3",
     "typescript": "~5.7.0"
   }

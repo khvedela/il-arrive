@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpResponse, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { mergeMap, catchError, tap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import {
   LoginDto,
@@ -14,14 +14,17 @@ import {
   RegisterResponse,
 } from '@il-arrive/contracts';
 
-const API_URL = (import.meta as any).env?.API_URL ?? '/api';
+const API_URL = '/api';
 
 export function getCsrfToken(): string | null {
   const match = document.cookie.match(/csrf_token=([^;]+)/);
   return match ? match[1] : null;
 }
 
+@Injectable()
 export class AuthHttpInterceptor implements HttpInterceptor {
+  private router = inject(Router);
+
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     const csrf = getCsrfToken();
     const apiReq = req.clone({
@@ -30,29 +33,15 @@ export class AuthHttpInterceptor implements HttpInterceptor {
     });
 
     return next.handle(apiReq).pipe(
-      tap({
-        next: (event) => {
-          if (event instanceof HttpResponse) {
-            const setCookie = event.headers.get('Set-Cookie');
-            if (setCookie) {
-              document.cookie = setCookie;
-            }
-          }
-        },
-      }),
       catchError((err: HttpErrorResponse) => {
-        if (err.status === 401 && !req.url.includes('/auth/login') && !req.url.includes('/auth/register') && !req.url.includes('/auth/reset-password') && !req.url.includes('/auth/accept-invitation')) {
-          const router = inject(Router);
-          router.navigate(['/login']);
+        const isAuthCall = /\/auth\/(login|register|reset-password|accept-invitation)/.test(req.url);
+        if (err.status === 401 && !isAuthCall) {
+          this.router.navigate(['/login']);
         }
         return throwError(() => err);
       }),
     );
   }
-}
-
-export function provideAuthInterceptor(): HttpInterceptor {
-  return new AuthHttpInterceptor();
 }
 
 @Injectable({ providedIn: 'root' })
