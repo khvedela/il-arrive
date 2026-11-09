@@ -159,6 +159,9 @@ model Intervention {
 
 model InterventionEvent {
   notificationProcessedAt DateTime?
+  notificationNextAttemptAt DateTime @default(now())
+  notificationAttempts Int @default(0)
+  notificationLastError String?
   id             String   @id @default(cuid())
   interventionId String
   type           String
@@ -170,7 +173,7 @@ model InterventionEvent {
 
   @@index([interventionId])
   @@index([createdAt])
-  @@index([notificationProcessedAt, createdAt])
+  @@index([notificationProcessedAt, notificationNextAttemptAt, createdAt, id], map: "InterventionEvent_notification_retry_idx")
 }
 
 model TrackingLink {

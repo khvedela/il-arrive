@@ -37,9 +37,21 @@ subscriber uses a payload ETA or the current tracking session ETA.
 `notificationProcessedAt` is acknowledged after policy/reservation. On a crash
 before acknowledgement, replay uses the same idempotency key. If enqueue fails,
 the committed QUEUED row is recovered by the existing queue reconciler. Malformed
-payloads and DB failures stay pending and are logged for retry. Backlogs are
-processed oldest first in batches of 100. Apply the event-outbox migration before
-starting the updated worker.
+payloads and failed reservations stay unacknowledged. Their attempt count, last
+error (up to 1000 characters), and next eligible time are stored on the event.
+Retries back off exponentially from one second to one hour, with no automatic
+acknowledgement or deletion. Each batch takes up to 100 eligible rows ordered by
+next attempt time, then creation time and ID. Fresh work therefore progresses
+before old retries even when those retries become due. Successful processing
+clears the error; the attempt count remains available for diagnostics. Persisted
+terminal policy outcomes (such as invalid phone or quota failure) retain their
+existing notification record and acknowledgement semantics.
+
+For operator replay after fixing a payload or dependency, leave
+`notificationProcessedAt` null and set `notificationNextAttemptAt` to the current
+time. For an acknowledged event, also clear `notificationProcessedAt`. Keep the
+original event ID to preserve notification idempotency. Apply the event-outbox
+and notification-event-retries migrations before starting the updated worker.
 
 ## Tracking links
 

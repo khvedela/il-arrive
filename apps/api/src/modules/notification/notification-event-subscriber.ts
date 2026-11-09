@@ -32,7 +32,9 @@ export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestro
 
   private async consume() {
     const pending = await this.prisma.interventionEvent.findMany({
-      where: { notificationProcessedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 100,
+      where: { notificationProcessedAt: null, notificationNextAttemptAt: { lte: new Date() } },
+      // Fresh rows precede scheduled retries even once the retries become due.
+      orderBy: [{ notificationNextAttemptAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], take: 100,
     });
     for (const row of pending) {
       try {
@@ -67,10 +69,22 @@ export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestro
         // Stable timeline ID distinguishes two separate en-route/delay cycles.
         if (event) await this.events.handle(event, new Date(), row.id);
         await this.prisma.interventionEvent.update({
-          where: { id: row.id }, data: { notificationProcessedAt: new Date() },
+          where: { id: row.id }, data: { notificationProcessedAt: new Date(), notificationLastError: null },
         });
       } catch (e) {
-        this.logger.error(`notification event ${row.id} remains pending: ${e instanceof Error ? e.message : 'error'}`);
+        const error = (e instanceof Error ? e.message : 'notification event processing failed').slice(0, 1000);
+        const backoffMs = Math.min(3600_000, 1000 * 2 ** Math.min(row.notificationAttempts, 12));
+        // Persist eligibility before continuing so poison rows cannot monopolize the next page.
+        // A concurrent consumer may already have acknowledged this stable event ID.
+        await this.prisma.interventionEvent.updateMany({
+          where: { id: row.id, notificationProcessedAt: null },
+          data: {
+            notificationAttempts: { increment: 1 },
+            notificationNextAttemptAt: new Date(Date.now() + backoffMs),
+            notificationLastError: error,
+          },
+        });
+        this.logger.error(`notification event ${row.id} retry scheduled: ${error}`);
       }
     }
   }

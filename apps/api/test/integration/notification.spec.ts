@@ -25,9 +25,11 @@ const provider = {
   name: 'console',
   failing: false,
   keys: [] as string[],
+  sent: [] as { key: string; body: string }[],
   async send(_to: string, _body: string, key: string) {
     this.keys.push(key);
     if (this.failing) throw new Error('provider down');
+    this.sent.push({ key, body: _body });
     return { providerMessageId: `test-${key}` };
   },
 };
@@ -73,6 +75,7 @@ describe('Notifications (Postgres + Redis)', () => {
   beforeEach(() => {
     provider.failing = false;
     provider.keys = [];
+    provider.sent = [];
   });
 
   async function seed(o: { quota?: number; status?: any; windowEndOffsetH?: number; periodStart?: Date } = {}) {
@@ -259,6 +262,56 @@ describe('Notifications (Postgres + Redis)', () => {
     expect((await rows(iv.id))[0].status).toBe('DELIVERED');
     await svc.applyDeliveryStatus(sent.providerMessageId!, 'FAILED', 'handset off');
     expect((await rows(iv.id))[0]).toMatchObject({ status: 'FAILED', error: 'handset off' });
+  });
+
+  it('dispatches a resolvable refreshed URL after shared rotation without revocation', async () => {
+    const { iv, business } = await seed();
+    await queue.pause();
+    let originalToken: string;
+    try {
+      await svc.request({ interventionId: iv.id, kind: 'EN_ROUTE', version: 'rotate-dispatch' });
+      const pending = (await rows(iv.id))[0];
+      originalToken = pending.body.match(/\/t\/([\w-]+)/)![1];
+      const rotated = await app.get(SharedTrackingLinks).regenerate(business.id, iv.id);
+      expect(rotated.token).not.toBe(originalToken);
+      await expect(app.get(PublicTrackingService).getPublicTracking(originalToken)).rejects.toMatchObject({ status: 404 });
+    } finally {
+      await queue.resume();
+    }
+    const sent = await until(async () => (await rows(iv.id)).find((n) => n.status === 'SENT'));
+    const actual = provider.sent.find((n) => n.key === sent.idempotencyKey);
+    expect(actual).toBeDefined();
+    expect(actual!.body).toBe(sent.body);
+    const sentToken = actual!.body.match(/\/t\/([\w-]+)/)![1];
+    expect(sentToken).not.toBe(originalToken!);
+    expect((await app.get(PublicTrackingService).getPublicTracking(sentToken)).status).toBe('EN_ROUTE');
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: business.id } })).smsUsedThisPeriod).toBe(1);
+  });
+
+  it('persists retry diagnostics while a later business progresses beyond a poison batch', async () => {
+    const bad = await seed();
+    const good = await seed({ status: 'SCHEDULED' });
+    const subscriber = app.get(NotificationEventSubscriber);
+    await subscriber.onModuleDestroy();
+    const ids = Array.from({ length: 105 }, (_, i) => `poison-${bad.iv.id}-${i}`);
+    try {
+      await prisma.interventionEvent.createMany({ data: ids.map((id) => ({
+        id, interventionId: bad.iv.id, type: 'intervention.eta.updated', payload: {},
+      })) });
+      const healthy = await prisma.interventionEvent.create({ data: {
+        interventionId: good.iv.id, type: 'intervention.created', payload: {},
+      } });
+      await subscriber.drain();
+      await subscriber.drain();
+      const failures = await prisma.interventionEvent.findMany({ where: { id: { in: ids } } });
+      expect(failures.every((r) => r.notificationProcessedAt === null && r.notificationAttempts > 0 &&
+        r.notificationLastError?.includes('invalid ETA'))).toBe(true);
+      expect((await prisma.interventionEvent.findUniqueOrThrow({ where: { id: healthy.id } })).notificationProcessedAt).not.toBeNull();
+      await until(async () => (await rows(good.iv.id)).find((n) => n.status === 'SENT'));
+    } finally {
+      await prisma.interventionEvent.deleteMany({ where: { id: { in: ids } } });
+      subscriber.onModuleInit();
+    }
   });
 
   it('reuses outbox links, rotates with SLA-8 and suppresses queued sends after revocation', async () => {
