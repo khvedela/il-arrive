@@ -31,8 +31,10 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new business and user' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.register(dto);
+    res.setHeader('Set-Cookie', sessionCookieHeaders(result.accessToken, newCsrfToken(), SESSION_TTL_MS));
+    return result;
   }
 
   @Post('login')
@@ -60,7 +62,7 @@ export class AuthController {
   @ApiCookieAuth()
   @UseGuards(AccessTokenGuard)
   async getMe(@CurrentUser() user: AuthenticatedUser) {
-    return this.authService.getMe(user.userId);
+    return this.authService.getMe(user.userId, user.activeBusinessId);
   }
 
   @Patch('password')
