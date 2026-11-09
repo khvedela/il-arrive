@@ -58,7 +58,7 @@ export class InviteMemberService {
       },
     });
 
-    const inviteLink = `${process.env.FRONTEND_WEB_URL}/invite/${token}`;
+    const inviteLink = `${process.env.FRONTEND_WEB_URL}/accept-invitation/${token}`;
     await this.mailProvider.send({
       to: email,
       subject: `Invitation pour ${process.env.APP_NAME}`,

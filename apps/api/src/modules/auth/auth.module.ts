@@ -5,10 +5,11 @@ import { CreateSessionService } from './create-session.service';
 import { CreateUserService } from './create-user.service';
 import { MailModule } from '../mail/mail.module';
 import { BusinessModule } from '../business/business.module';
+import { MembersModule } from '../members/members.module';
 import { SessionMiddleware } from './session.middleware';
 
 @Module({
-  imports: [MailModule, BusinessModule],
+  imports: [MailModule, BusinessModule, MembersModule],
   controllers: [AuthController],
   providers: [AuthService, CreateSessionService, CreateUserService, SessionMiddleware],
   exports: [AuthService, CreateSessionService, CreateUserService],

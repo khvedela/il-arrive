@@ -15,6 +15,9 @@ import { AuthService } from './auth.service';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './auth-user';
+import { AcceptInvitationService } from '../members/accept-invitation.service';
+import { CreateSessionService } from './create-session.service';
+import { AcceptInvitationDto } from './dtos/accept-invitation.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
@@ -26,7 +29,11 @@ import { clearedCookieHeaders, newCsrfToken, sessionCookieHeaders } from './sess
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly acceptInvitationService: AcceptInvitationService,
+    private readonly createSession: CreateSessionService,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -43,6 +50,16 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(dto);
     res.setHeader('Set-Cookie', sessionCookieHeaders(result.accessToken, newCsrfToken(), SESSION_TTL_MS));
+    return result;
+  }
+
+  @Post('accept-invitation')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Redeem an invitation token (single-use) and sign in' })
+  async acceptInvitation(@Body() dto: AcceptInvitationDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.acceptInvitationService.execute(dto);
+    const session = await this.createSession.execute({ userId: result.userId });
+    res.setHeader('Set-Cookie', sessionCookieHeaders(session.token, newCsrfToken(), SESSION_TTL_MS));
     return result;
   }
 

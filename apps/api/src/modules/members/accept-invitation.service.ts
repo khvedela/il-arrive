@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import * as argon2 from 'argon2';
 import { digestToken } from '../../common/tokens';
@@ -15,7 +15,7 @@ export class AcceptInvitationService {
     token: string;
     password: string;
     firstName: string;
-    lastName: string;
+    lastName?: string;
     phone?: string;
   }) {
     const tokenHash = digestToken(token);
@@ -24,22 +24,22 @@ export class AcceptInvitationService {
     });
 
     if (!invitation) {
-      throw new Error('Invalid or expired invitation');
+      throw new BadRequestException('Invalid or expired invitation');
     }
 
     if (invitation.acceptedAt) {
-      throw new Error('Invitation already accepted');
+      throw new BadRequestException('Invitation already accepted');
     }
 
     if (invitation.expiresAt < new Date()) {
-      throw new Error('Invitation has expired');
+      throw new BadRequestException('Invitation has expired');
     }
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email: invitation.email },
     });
     if (existingUser && !(await argon2.verify(existingUser.passwordHash, password))) {
-      throw new Error('Invalid password');
+      throw new UnauthorizedException('Invalid password');
     }
     const hashedPassword = existingUser ? undefined : await argon2.hash(password);
 
@@ -51,7 +51,7 @@ export class AcceptInvitationService {
         data: { acceptedAt: new Date() },
       });
       if (claim.count !== 1) {
-        throw new Error('Invitation already accepted or expired');
+        throw new BadRequestException('Invitation already accepted or expired');
       }
 
       const member =
@@ -61,7 +61,7 @@ export class AcceptInvitationService {
             email: invitation.email,
             passwordHash: hashedPassword as string,
             firstName,
-            lastName,
+            lastName: lastName ?? '',
             phone: phone || undefined,
           },
         }));

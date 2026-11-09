@@ -85,6 +85,6 @@ export interface AcceptInvitationDto {
   token: string;
   password: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   phone?: string;
 }
