@@ -22,7 +22,7 @@ describe('TrackingApi default (localhost, no opt-in)', () => {
 
   beforeEach(() => {
     FakeEventSource.instances = [];
-    (globalThis as any).EventSource = FakeEventSource;
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     api = TestBed.inject(TrackingApi);
     http = TestBed.inject(HttpTestingController);
