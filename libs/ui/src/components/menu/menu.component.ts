@@ -2,14 +2,11 @@ import {
   Component,
   input,
   signal,
-  computed,
-  Output,
   EventEmitter,
   AfterViewInit,
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { NgFor } from '@angular/common';
 import { MenuItemDef } from './menu.types';
 
 @Component({
@@ -42,7 +39,7 @@ import { MenuItemDef } from './menu.types';
                   role="menuitem"
                   [attr.tabindex]="isMenuActive(item) ? 0 : -1"
                   (click)="selectItem(item)"
-                  (keydown)="onItemKeydown($event, item)">
+                  (keydown)="onItemKeydown($event)">
                 @if (item.icon) {
                   <span class="ia-menu__item-icon" aria-hidden="true">{{ item.icon }}</span>
                 }
@@ -118,12 +115,11 @@ export class IaMenuComponent implements AfterViewInit, OnDestroy {
   };
 
   protected onTriggerKeydown = (event: KeyboardEvent): void => {
-    const menuItems = this.items().filter(i => i.type !== 'divider');
     if (event.key === 'ArrowDown') { event.preventDefault(); if (!this.isOpen()) this.toggle(); else this.activeIndex.set(0); }
     if (event.key === 'Escape') { event.preventDefault(); if (this.isOpen()) this.toggle(); }
   };
 
-  protected onItemKeydown = (event: KeyboardEvent, item: MenuItemDef): void => {
+  protected onItemKeydown = (event: KeyboardEvent): void => {
     const menuItems = this.items().filter(i => i.type !== 'divider');
     const idx = this.activeIndex();
     if (event.key === 'ArrowDown') { event.preventDefault(); this.activeIndex.set(Math.min(idx + 1, menuItems.length - 1)); }

@@ -1,9 +1,7 @@
 import {
   Component,
   input,
-  signal,
   computed,
-  Output,
   EventEmitter,
   AfterViewInit,
   ChangeDetectionStrategy,

@@ -1,5 +1,4 @@
 import { Component, input, ChangeDetectionStrategy } from '@angular/core';
-import { IaButtonComponent } from '../button/button.component';
 
 @Component({
   selector: 'ia-avatar',

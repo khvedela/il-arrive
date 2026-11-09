@@ -1,4 +1,4 @@
-import { Component, input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { IaButtonComponent } from '../button/button.component';
 
 @Component({

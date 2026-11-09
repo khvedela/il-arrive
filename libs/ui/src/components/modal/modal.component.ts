@@ -1,7 +1,6 @@
 import {
   Component,
   input,
-  Output,
   EventEmitter,
   ChangeDetectionStrategy,
 } from '@angular/core';

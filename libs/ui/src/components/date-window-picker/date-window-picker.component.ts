@@ -1,4 +1,4 @@
-import { Component, input, model, computed, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, model, computed, ChangeDetectionStrategy } from '@angular/core';
 import { IaInputComponent } from '../input/input.component';
 import { IaButtonComponent } from '../button/button.component';
 

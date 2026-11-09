@@ -1,4 +1,4 @@
-import { Component, input, computed, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { IaStatusBadgeComponent } from '../status-badge/status-badge.component';
 import { IaAvatarComponent } from '../avatar/avatar.component';
 

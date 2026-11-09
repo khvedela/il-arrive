@@ -1,4 +1,4 @@
-import { Component, input, computed, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { TabDef } from './tab-group.directive';
 
 @Component({
@@ -112,25 +112,27 @@ export class IaTabsComponent {
   protected onKeydown = (event: KeyboardEvent): void => {
     const len = this.tabs().length;
     const current = this.selectedIndex();
+    let target = current;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();
-        const next = (current + 1) % len;
-        this.selectTab(next);
+        target = (current + 1) % len;
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        const prev = (current - 1 + len) % len;
-        this.selectTab(prev);
+        target = (current - 1 + len) % len;
         break;
       case 'Home':
         event.preventDefault();
-        this.selectTab(0);
+        target = 0;
         break;
       case 'End':
         event.preventDefault();
-        this.selectTab(len - 1);
+        target = len - 1;
         break;
+      default:
+        return;
     }
+    this.selectTab(target);
   };
 }

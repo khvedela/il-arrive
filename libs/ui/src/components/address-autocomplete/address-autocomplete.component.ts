@@ -4,12 +4,10 @@ import {
   model,
   signal,
   computed,
-  Output,
   EventEmitter,
   OnDestroy,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { NgFor } from '@angular/common';
 import { AddressSuggestion, AddressSearchFn } from './address-autocomplete.types';
 
 @Component({

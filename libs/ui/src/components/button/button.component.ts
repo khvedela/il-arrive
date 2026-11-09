@@ -1,4 +1,4 @@
-import { Component, input, computed, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'action';
