@@ -15,7 +15,7 @@
     "build": "pnpm -r --filter \"./apps/*\" --filter \"./libs/*\" build",
     "lint": "eslint \"**/{src,test,libs}/**/*.ts\"",
     "typecheck": "pnpm -r --filter \"./apps/*\" --filter \"./libs/*\" typecheck",
-    "test": "pnpm -r --filter \"./apps/api\" test",
+    "test": "pnpm -r --filter \"./apps/api\" test && pnpm -r --filter \"./libs/ui\" test",
     "test:integration": "pnpm -r --filter \"./apps/api\" test:integration",
     "db:migrate": "pnpm -F api db:migrate",
     "db:seed": "pnpm -F api db:seed",
