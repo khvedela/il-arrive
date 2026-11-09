@@ -392,7 +392,7 @@ describe('Notifications (Postgres + Redis)', () => {
 
       const ownerOfB = await auth(b, 'OWNER');
       await http().get('/business/sms-usage').set('authorization', ownerOfB)
-        .set('x-business-id', a.business.id).expect(403);
+        .set('x-business-id', a.business.id).expect(401); // shared SessionMiddleware: no membership there
       await http().post(`/interventions/${a.iv.id}/notify`).set('authorization', ownerOfB)
         .send({ kind: 'EN_ROUTE' }).expect(404);
       await http().get(`/interventions/${a.iv.id}/share-message`).set('authorization', ownerOfB).expect(404);
