@@ -6,7 +6,8 @@
     "dev": "ng serve --port 4201",
     "build": "ng build",
     "typecheck": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "test": "jest"
   },
   "dependencies": {
     "@angular/common": "^19.2.0",
@@ -27,6 +28,10 @@
     "@angular-devkit/build-angular": "^19.2.0",
     "@angular/cli": "^19.2.0",
     "@angular/compiler-cli": "^19.2.0",
+    "@angular/platform-browser-dynamic": "^19.2.0",
+    "@types/jest": "^30.0.0",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-preset-angular": "^17.0.3",
     "typescript": "~5.7.0"
   }
 }

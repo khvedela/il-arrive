@@ -806,7 +806,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   protected isSuccessState = computed(() => this.isArrived() || this.isCompleted());
   protected isCancelledState = computed(() => this.isCancelled());
   protected isExpiredState = computed(() =>
-    (this.state.httpStatus === 410 || this.state.httpStatus === 404) && this.state.error
+    !!(this.state.httpStatus === 410 || this.state.httpStatus === 404) && !!this.state.error
   );
   protected isCompletedState = computed(() => this.isCompleted());
 
@@ -890,7 +890,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
 
   protected showRescheduledBanner = computed(() => {
     const p = this.projection();
-    return p.status === 'SCHEDULED' && (p as any).previousDate;
+    return p.status === 'SCHEDULED' && !!(p as any).previousDate;
   });
 
   protected rescheduledBannerText = computed(() => {
