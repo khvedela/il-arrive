@@ -14,7 +14,8 @@
     "paths": {
       "@il-arrive/ui": ["libs/ui/src/public-api.ts"],
       "@il-arrive/ui/*": ["libs/ui/src/*"],
-      "@il-arrive/contracts": ["libs/contracts/src/index.ts"]
+      "@il-arrive/contracts": ["libs/contracts/src/index.ts"],
+      "@il-arrive/contracts/*": ["libs/contracts/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build"]

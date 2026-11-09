@@ -2,9 +2,9 @@ import {
   Component,
   input,
   computed,
-  EventEmitter,
   AfterViewInit,
   ChangeDetectionStrategy,
+  output,
 } from '@angular/core';
 import { IaFocusTrapDirective } from '../../shared/focus-trap.directive';
 
@@ -86,7 +86,7 @@ export class IaDrawerComponent implements AfterViewInit {
   title = input('');
   label = input('');
   hasFooter = input(false);
-  close = new EventEmitter<void>();
+  close = output<void>();
 
   protected isMobile = computed(() => typeof window !== 'undefined' && window.innerWidth < 1024);
   protected showGrabHandle = computed(() => this.isMobile());

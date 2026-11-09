@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app-shell",
+      "installMode": "prefetch",
+      "resources": { "files": ["/favicon.ico", "/index.html", "/manifest.webmanifest", "/*.css", "/*.js"] }
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": { "files": ["/**/*.(svg|png|jpg|jpeg|webp|woff|woff2)"] }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "tech-today",
+      "urls": ["/api/tech/**"],
+      "cacheConfig": { "strategy": "freshness", "maxSize": 50, "maxAge": "1d", "timeout": "5s" }
+    }
+  ]
+}

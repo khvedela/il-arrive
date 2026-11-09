@@ -1,4 +1,4 @@
-import { Component, input, computed, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, ChangeDetectionStrategy, output } from '@angular/core';
 import { IaStatusBadgeComponent } from '../status-badge/status-badge.component';
 import { IaAvatarComponent } from '../avatar/avatar.component';
 
@@ -134,7 +134,7 @@ export class IaListRowComponent {
   delay = input<string>('');
   selected = input(false);
 
-  select = new EventEmitter<void>();
+  select = output<void>();
 
   protected isSelected = computed(() => this.selected());
 

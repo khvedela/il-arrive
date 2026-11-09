@@ -1,4 +1,4 @@
-import { Component, input, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy, output } from '@angular/core';
 import { IaButtonComponent } from '../button/button.component';
 
 @Component({
@@ -39,5 +39,5 @@ export class IaErrorStateComponent {
   description = input<string | null>(null);
   retryLabel = input('Réessayer');
   showRetry = input(true);
-  retryClicked = new EventEmitter<void>();
+  retryClicked = output<void>();
 }

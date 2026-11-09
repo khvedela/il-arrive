@@ -22,6 +22,10 @@ export class AppComponent implements OnInit {
   private authService = inject(AuthService);
 
   ngOnInit(): void {
-    this.authService.bootstrap().subscribe();
+    // The technician PWA (/tech) runs on its own mock API and must not trigger the dashboard auth bootstrap.
+    if (typeof location !== 'undefined' && location.pathname.startsWith('/tech')) {
+      return;
+    }
+    this.authService.bootstrap().subscribe({ error: () => undefined });
   }
 }
