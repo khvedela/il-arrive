@@ -1,4 +1,26 @@
-# SLA-28 review — CHANGES REQUIRED
+# SLA-28 re-review — APPROVE
+
+Manager re-review on 2026-11-09 approves source revision `19d8e5680947ab2798cc5ae1d1c1dd55c13ebd6f`, present at documentation head `c10bac9`. This supersedes the earlier CHANGES REQUIRED verdict below. No outstanding findings in the reviewed console-only notification scope. No merge performed by manager; parent may proceed through its merge process.
+
+1. **Resolved — subscriber starvation.** Reviewed `93a7f2e`: failed events persist a next-attempt deadline, bounded exponential backoff, attempt count and truncated diagnostic; eligibility/order advance past failed rows while keeping them unacknowledged. The failure update is conditional on the event still being unacknowledged. Stable event IDs preserve notification reservation deduplication after an acknowledgement failure. The matching index/migration and operator replay instructions are included. Four meaningful unit regressions cover a 205-row poison backlog, due retries across reconstructed consumers, transient reservation recovery, acknowledgement replay and capped backoff.
+2. **Resolved — live acceptance and rotation evidence.** Inspected the author's complete seven-migration execution and integration output in `docs/verification/SLA-29-live-results.txt`, plus fixture/teardown corrections in `d0822f5` and `19d8e56`. Independently reran the full integration suite on the supplied dedicated PostgreSQL 16/Redis 7 services: **3 suites, 19 tests passed, exit 0, 4.857s**. This includes persisted poison-event fairness across businesses, real transition/event/worker/session paths, shared-link rotation with actual provider body resolution, revocation, quota/cap concurrency, retries/refunds, tracking-link concurrency and health.
+
+## Independent manager verification
+
+Ran in the supplied worktree at `c10bac9`, with the same production/test tree as `19d8e56` (intervening changes are reports only). Configuration was loaded from gitignored `.cache/sla29/test.env`; no credentials were printed or committed. `OPENSSL_CONF=/dev/null` and workspace-local TMPDIR/XDG_CACHE_HOME were used.
+
+- PASS: `node apps/api/node_modules/prisma/build/index.js migrate status --schema apps/api/prisma/schema.prisma` — all seven migrations present; database schema up to date. Author's fresh migration deployment was inspected, not repeated on existing data.
+- PASS: `node apps/api/node_modules/jest/bin/jest.js --config apps/api/jest.integration.config.js --runInBand --forceExit --cacheDirectory .cache/sla28/jest-integration` — 3/3 suites, 19/19 tests. No BullMQ missing-key/unhandled-error output. The configured `--forceExit` prints its standard advisory; this run does not establish a separate open-handle audit.
+- PASS: `node apps/api/node_modules/jest/bin/jest.js --config apps/api/jest.config.js --runInBand --cacheDirectory .cache/sla28/jest` — 11/11 suites, 94/94 tests.
+- PASS: `node apps/api/node_modules/typescript/bin/tsc --noEmit -p apps/api/tsconfig.json`.
+- PASS: `node node_modules/eslint/bin/eslint.js '**/{src,test,libs}/**/*.ts'`.
+- PASS: `git diff --check`.
+
+Full independent rerun logs remain ignored under `.cache/sla28/rereview-{migrations,integration,unit,typecheck,lint}.log`. Matching Prisma generation, API build and integration TypeScript compile are recorded in the author's handoff; the earlier manager build and full integration rerun also exercise the changed module paths. Services are dedicated disposable test services supplied by SLA-30, not the unrelated local database. Brevo/webhook remain deferred and are outside this approval. Test-service cleanup remains with its provisioning owner; no services were stopped during review.
+
+---
+
+# Original review — CHANGES REQUIRED (superseded)
 
 Reviewed SLA-10 head `5a37232698eb2ab107d12c80c91fd72556a927f2`, including the integration delta from `8fab14e` and the notification implementation against `dd4800c`. No merge approved. Previously corrected auth/base findings were not reopened. Console-only scope is respected; Brevo/webhook remain deferred.
 
