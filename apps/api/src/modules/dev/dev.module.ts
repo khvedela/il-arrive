@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma.service';
+import { DatabaseModule } from '../../common/database.module';
 import { DevSmsController } from './dev.controller';
 
-@Module({ controllers: [DevSmsController], providers: [PrismaService] })
+@Module({ imports: [DatabaseModule], controllers: [DevSmsController] })
 export class DevModule {}

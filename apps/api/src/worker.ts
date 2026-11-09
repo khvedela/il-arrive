@@ -2,7 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { WorkerModule } from './modules/worker/worker.module';
 
 async function bootstrap() {
-  await NestFactory.create(WorkerModule);
+  const app = await NestFactory.createApplicationContext(WorkerModule);
+  app.enableShutdownHooks();
   console.log('Worker process started');
 }
 
