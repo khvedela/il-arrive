@@ -46,7 +46,10 @@ export class TrackingApi {
   // -------------------------------------------------------------------------
 
   private isMockMode(): boolean {
-    return typeof window !== 'undefined' && window.location.search.includes('mock=1');
+    if (typeof window === 'undefined') return false;
+    // In dev, always use mocks; in prod, opt-in with ?mock=1
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    return isDev || window.location.search.includes('mock=1');
   }
 
   private mockFetch(token: string): Observable<PublicTrackingProjection> {
