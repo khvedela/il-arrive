@@ -1,18 +1,17 @@
-import { Component, OnInit, OnDestroy, inject, computed, effect } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
-import { CommonModule, NgZone } from '@angular/common';
-import { takeUntilDestroyed, DestroyRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed, ChangeDetectionStrategy, NgZone, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { CommonModule } from '@angular/common';
 import {
   IaCardComponent,
   IaAvatarComponent,
   IaTimelineComponent,
-  IaButtonComponent,
   IaLoadingStateComponent,
   IaErrorStateComponent,
 } from '@il-arrive/ui';
 import type { TimelineStep, TimelineStepStatus } from '@il-arrive/ui';
 import type { PublicTrackingProjection, SSEEvent, SSEEventType } from '@il-arrive/contracts';
-import { TrackingApi } from '../services/tracking-api.service';
+import { TrackingApi } from '../../services/tracking-api.service';
 
 interface AppState {
   projection: PublicTrackingProjection | null;
@@ -29,7 +28,6 @@ interface AppState {
     IaCardComponent,
     IaAvatarComponent,
     IaTimelineComponent,
-    IaButtonComponent,
     IaLoadingStateComponent,
     IaErrorStateComponent,
   ],
@@ -59,8 +57,8 @@ interface AppState {
               <h1 class="expired-page__title">{{ expiredTitle() }}</h1>
               <p class="expired-page__body">{{ expiredBody() }}</p>
               @if (state.projection?.contactPhone) {
-                <a [href]="'tel:' + state.projection.contactPhone" class="expired-page__cta">
-                  Appeler {{ state.projection.businessName }}
+                <a [href]="'tel:' + (state.projection?.contactPhone || '')" class="expired-page__cta">
+                  Appeler {{ state.projection?.businessName || '' }}
                 </a>
               }
               <div class="expired-page__footer">
@@ -758,13 +756,13 @@ interface AppState {
       border: 0;
     }
   `],
-  changeDetection: 'OnPush',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TrackPageComponent implements OnInit, OnDestroy {
-  private destroyRef = inject(DestroyRef);
-  private route = inject(ActivatedRoute);
-  private trackingApi = inject(TrackingApi);
-  private ngZone = inject(NgZone);
+  private destroyRef: DestroyRef = inject(DestroyRef);
+  private route: ActivatedRoute = inject(ActivatedRoute);
+  private trackingApi: TrackingApi = inject(TrackingApi);
+  private ngZone: NgZone = inject(NgZone);
 
   protected state: AppState = {
     projection: null,
@@ -772,7 +770,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
     error: null,
   };
 
-  protected projection = computed(() => this.state.projection!);
+  protected projection = computed(() => this.state.projection || {} as PublicTrackingProjection);
 
   private token = '';
   private eventSource: EventSource | null = null;
@@ -883,9 +881,10 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   // Banners
   // -------------------------------------------------------------------------
 
-  protected showDelayBanner = computed(() =>
-    this.isEnRoute() && this.projection().delayMinutes && this.projection().delayMinutes > 0
-  );
+  protected showDelayBanner = computed(() => {
+    const p = this.projection();
+    return this.isEnRoute() && !!p.delayMinutes && p.delayMinutes > 0;
+  });
 
   protected showCancelledBanner = computed(() => this.isCancelled());
 
@@ -1058,11 +1057,11 @@ export class TrackPageComponent implements OnInit, OnDestroy {
     this.trackingApi.fetchProjection(this.token).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
-      next: (projection) => {
+      next: (projection: PublicTrackingProjection) => {
         this.state = { ...this.state, projection, loading: false, error: null };
         this.startSSE();
       },
-      error: (err) => {
+      error: (err: any) => {
         if (err.status === 404 || err.status === 410) {
           // For expired/revoked links, keep loading false with the http status
           this.state = {
@@ -1088,7 +1087,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
     this.trackingApi.subscribeToEvents(this.token).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
-      next: (event: MessageEvent) => {
+      next: (event: MessageEvent<any>) => {
         const data = JSON.parse(event.data);
         this.handleSSEEvent(data);
       },
