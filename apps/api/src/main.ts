@@ -11,11 +11,12 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Honour X-Forwarded-For only when explicitly told how many proxy hops sit in front (TRUST_PROXY=1 behind
-  // nginx). Default is off: otherwise any direct caller could spoof its address and dodge per-client throttling.
-  const trustProxyHops = Number(configService.get('TRUST_PROXY', 0));
-  if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) {
-    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+  // Honour X-Forwarded-For only from explicitly trusted proxies. TRUST_PROXY is a hop count (1 = nginx) or an
+  // express address list (e.g. "loopback, 172.16.0.0/12"). Default is off: otherwise any direct caller could
+  // spoof its address and dodge per-client throttling.
+  const trustProxy = String(configService.get('TRUST_PROXY', '0')).trim();
+  if (trustProxy && trustProxy !== '0' && trustProxy.toLowerCase() !== 'false') {
+    app.getHttpAdapter().getInstance().set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
   }
 
   // Pino structured logger

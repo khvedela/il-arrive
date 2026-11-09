@@ -142,6 +142,26 @@ describe('POST /auth/accept-invitation over real HTTP (Postgres)', () => {
     await accept('198.51.100.9').send(body(token)).expect(201);
   });
 
+  it('the same client can redeem again once the throttle window has expired', async () => {
+    const a = await owner();
+    const b = await owner();
+    const email = `win-${n()}@x.test`;
+    await accept().send(body(await invite(a, email))).expect(201);
+    const token = await invite(b, email);
+    const client = '203.0.113.99';
+    const wrong = { ...body(token), password: 'Wrong-pass-123' };
+    for (let i = 0; i < ACCEPT_INVITATION_ATTEMPTS; i++) await accept(client).send(wrong).expect(401);
+    await accept(client).send(body(token)).expect(429);
+
+    const real = Date.now;
+    const spy = jest.spyOn(Date, 'now').mockImplementation(() => real() + 61_000);
+    try {
+      await accept(client).send(body(token)).expect(201);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('without TRUST_PROXY a caller cannot dodge the throttle by rotating X-Forwarded-For', async () => {
     const direct = (await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }), DatabaseModule, AuthModule],
