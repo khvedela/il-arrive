@@ -27,6 +27,7 @@ model Business {
   interventions Intervention[]
   invitations Invitation[]
   auditLogs   AuditLog[]
+  passwordResetTokens PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,17 +36,18 @@ model Business {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  avatarUrl    String?
-  phone        String?
+  id                    String                  @id @default(cuid())
+  email                 String                  @unique
+  passwordHash          String
+  firstName             String
+  lastName              String
+  avatarUrl             String?
+  phone                 String?
 
-  memberships Membership[]
-  sessions    Session[]
-  auditLogs   AuditLog[] @relation("UserAuditLogs")
+  memberships           Membership[]
+  sessions              Session[]
+  auditLogs             AuditLog[]              @relation("UserAuditLogs")
+  passwordResetTokens   PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -222,6 +224,17 @@ model Notification {
 
   @@index([interventionId])
   @@index([status])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model AuditLog {

@@ -6,6 +6,8 @@ import { PrismaService } from './common/prisma.service';
 import { RedisService } from './common/redis.service';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BusinessModule } from './modules/business/business.module';
+import { MembersModule } from './modules/members/members.module';
 import { InterventionModule } from './modules/intervention/intervention.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -24,6 +26,8 @@ import { NotificationModule } from './modules/notification/notification.module';
     ]),
     HealthModule,
     AuthModule,
+    BusinessModule,
+    MembersModule,
     InterventionModule,
     TrackingModule,
     NotificationModule,
