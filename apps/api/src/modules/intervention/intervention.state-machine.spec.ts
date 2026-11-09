@@ -1,260 +1,96 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { InterventionStateMachine, resolveConflict, canPerformAction } from './intervention.state-machine';
-import { InterventionStatus } from './intervention-status';
+import { InterventionStatus } from '@prisma/client';
+import {
+  EVENT_TYPES,
+  TRANSITION_ACTIONS,
+  TransitionActionType,
+  allowedActions,
+  transition,
+} from './intervention.state-machine';
 
-describe('InterventionStateMachine', () => {
-  let stateMachine: InterventionStateMachine;
+const STATUSES = Object.values(InterventionStatus) as InterventionStatus[];
+const NOW = new Date('2026-01-10T10:00:00Z');
 
-  beforeEach(() => {
-    stateMachine = new InterventionStateMachine();
-  });
-
-  describe('getValidTransitions', () => {
-    it('should return valid transitions for SCHEDULED status', () => {
-      const transitions = stateMachine.getValidTransitions(InterventionStatus.SCHEDULED);
-      expect(transitions).toEqual([
-        InterventionStatus.EN_ROUTE,
-        InterventionStatus.CANCELLED,
-        InterventionStatus.SCHEDULED,
-      ]);
-    });
-
-    it('should return valid transitions for EN_ROUTE status', () => {
-      const transitions = stateMachine.getValidTransitions(InterventionStatus.EN_ROUTE);
-      expect(transitions).toEqual([InterventionStatus.ARRIVED, InterventionStatus.SCHEDULED]);
-    });
-
-    it('should return valid transitions for ARRIVED status', () => {
-      const transitions = stateMachine.getValidTransitions(InterventionStatus.ARRIVED);
-      expect(transitions).toEqual([InterventionStatus.COMPLETED, InterventionStatus.SCHEDULED, InterventionStatus.CANCELLED]);
-    });
-
-    it('should return valid transitions for COMPLETED status', () => {
-      const transitions = stateMachine.getValidTransitions(InterventionStatus.COMPLETED);
-      expect(transitions).toEqual([InterventionStatus.CANCELLED]);
-    });
-
-    it('should return valid transitions for CANCELLED status', () => {
-      const transitions = stateMachine.getValidTransitions(InterventionStatus.CANCELLED);
-      expect(transitions).toEqual([]);
-    });
-  });
-
-  describe('canTransition', () => {
-    it('should return true for valid transitions', () => {
-      expect(stateMachine.canTransition(InterventionStatus.SCHEDULED, InterventionStatus.EN_ROUTE)).toBe(true);
-      expect(stateMachine.canTransition(InterventionStatus.EN_ROUTE, InterventionStatus.ARRIVED)).toBe(true);
-      expect(stateMachine.canTransition(InterventionStatus.ARRIVED, InterventionStatus.COMPLETED)).toBe(true);
-      expect(stateMachine.canTransition(InterventionStatus.SCHEDULED, InterventionStatus.CANCELLED)).toBe(true);
-      expect(stateMachine.canTransition(InterventionStatus.COMPLETED, InterventionStatus.CANCELLED)).toBe(true);
-    });
-
-    it('should return false for invalid transitions', () => {
-      expect(stateMachine.canTransition(InterventionStatus.EN_ROUTE, InterventionStatus.COMPLETED)).toBe(false);
-      expect(stateMachine.canTransition(InterventionStatus.ARRIVED, InterventionStatus.EN_ROUTE)).toBe(false);
-      expect(stateMachine.canTransition(InterventionStatus.COMPLETED, InterventionStatus.ARRIVED)).toBe(false);
-    });
-  });
-
-  describe('validateTransition', () => {
-    it('should not throw for valid transitions', () => {
-      const intervention = { status: InterventionStatus.SCHEDULED, id: '1' } as any;
-      expect(() => stateMachine.validateTransition(intervention, 'en_route')).not.toThrow();
-    });
-
-    it('should throw ForbiddenException for invalid transitions', () => {
-      const intervention = { status: InterventionStatus.EN_ROUTE, id: '1' } as any;
-      expect(() => stateMachine.validateTransition(intervention, 'complete')).toThrow(ForbiddenException);
-      expect(() => stateMachine.validateTransition(intervention, 'complete')).toThrow(
-        'Invalid transition from EN_ROUTE with action complete. Allowed: ARRIVED, SCHEDULED',
-      );
-    });
-
-    it('should throw ForbiddenException for CANCELLED status', () => {
-      const intervention = { status: InterventionStatus.CANCELLED, id: '1' } as any;
-      expect(() => stateMachine.validateTransition(intervention, 'en_route')).toThrow(ForbiddenException);
-    });
-  });
-
-  describe('applyTransition', () => {
-    it('should transition SCHEDULED -> EN_ROUTE with en_route action', async () => {
-      const intervention = {
-        id: '1',
-        status: InterventionStatus.SCHEDULED,
-        scheduledDate: new Date(),
-        windowStart: new Date(),
-        windowEnd: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
-
-      const result = await stateMachine.applyTransition(intervention, 'en_route', 'actor-1');
-
-      expect(result.intervention.status).toBe(InterventionStatus.EN_ROUTE);
-      expect(result.event.type).toBe('intervention.en_route');
-      expect(result.event.payload).toEqual({
-        interventionId: '1',
-        actorId: 'actor-1',
-        fromStatus: InterventionStatus.SCHEDULED,
-        toStatus: InterventionStatus.EN_ROUTE,
-        action: 'en_route',
-        reason: undefined,
-        newScheduledDate: undefined,
-        newWindowStart: undefined,
-        newWindowEnd: undefined,
-      });
-    });
-
-    it('should transition ARRIVED -> COMPLETED with complete action', async () => {
-      const intervention = {
-        id: '2',
-        status: InterventionStatus.ARRIVED,
-        scheduledDate: new Date(),
-        windowStart: new Date(),
-        windowEnd: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
-
-      const result = await stateMachine.applyTransition(intervention, 'complete', 'actor-1');
-
-      expect(result.intervention.status).toBe(InterventionStatus.COMPLETED);
-      expect(result.event.type).toBe('intervention.completed');
-    });
-
-    it('should transition SCHEDULED -> CANCELLED with cancel action', async () => {
-      const intervention = {
-        id: '3',
-        status: InterventionStatus.SCHEDULED,
-        scheduledDate: new Date(),
-        windowStart: new Date(),
-        windowEnd: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
-
-      const result = await stateMachine.applyTransition(intervention, 'cancel', 'actor-1', 'Customer cancelled');
-
-      expect(result.intervention.status).toBe(InterventionStatus.CANCELLED);
-      expect(result.intervention.cancelledReason).toBe('Customer cancelled');
-      expect(result.event.type).toBe('intervention.cancelled');
-      expect(result.event.payload.reason).toBe('Customer cancelled');
-    });
-
-    it('should transition ARRIVED -> SCHEDULED with reschedule action', async () => {
-      const intervention = {
-        id: '4',
-        status: InterventionStatus.ARRIVED,
-        scheduledDate: new Date('2024-01-01'),
-        windowStart: new Date('2024-01-01T10:00:00'),
-        windowEnd: new Date('2024-01-01T12:00:00'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
-
-      const result = await stateMachine.applyTransition(
-        intervention,
-        'reschedule',
-        'actor-1',
-        undefined,
-        '2024-01-02',
-        '2024-01-02T10:00:00',
-        '2024-01-02T12:00:00',
-      );
-
-      expect(result.intervention.status).toBe(InterventionStatus.SCHEDULED);
-      expect(result.intervention.scheduledDate).toEqual(new Date('2024-01-02'));
-      expect(result.intervention.windowStart).toEqual(new Date('2024-01-02T10:00:00'));
-      expect(result.intervention.windowEnd).toEqual(new Date('2024-01-02T12:00:00'));
-      expect(result.event.type).toBe('intervention.scheduled');
-      expect(result.event.payload.newScheduledDate).toBe('2024-01-02');
-      expect(result.event.payload.newWindowStart).toBe('2024-01-02T10:00:00');
-      expect(result.event.payload.newWindowEnd).toBe('2024-01-02T12:00:00');
-    });
-
-    it('should throw for invalid transitions', async () => {
-      const intervention = {
-        id: '5',
-        status: InterventionStatus.EN_ROUTE,
-        scheduledDate: new Date(),
-        windowStart: new Date(),
-        windowEnd: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
-
-      await expect(stateMachine.applyTransition(intervention, 'complete', 'actor-1')).rejects.toThrow();
-    });
-  });
-
-  describe('resolveConflict', () => {
-    it('should allow valid transitions', () => {
-      const intervention = {
-        status: InterventionStatus.SCHEDULED,
-        id: '1',
-      } as any;
-      expect(() => resolveConflict(intervention, 'en_route')).not.toThrow();
-    });
-
-    it('should throw ConflictException for COMPLETED -> any transition', () => {
-      const intervention = {
-        status: InterventionStatus.COMPLETED,
-        id: '1',
-      } as any;
-      expect(() => resolveConflict(intervention, 'en_route')).toThrow(ConflictException);
-      expect(() => resolveConflict(intervention, 'cancel')).toThrow(ConflictException);
-      expect(() => resolveConflict(intervention, 'reschedule')).toThrow(ConflictException);
-    });
-
-    it('should throw ConflictException for CANCELLED -> any transition', () => {
-      const intervention = {
-        status: InterventionStatus.CANCELLED,
-        id: '1',
-      } as any;
-      expect(() => resolveConflict(intervention, 'en_route')).toThrow(ConflictException);
-      expect(() => resolveConflict(intervention, 'arrived')).toThrow(ConflictException);
-      expect(() => resolveConflict(intervention, 'complete')).toThrow(ConflictException);
-    });
-  });
-
-  describe('canPerformAction', () => {
-    it('should return true for valid actions', () => {
-      const intervention = { status: InterventionStatus.SCHEDULED, id: '1' } as any;
-      expect(canPerformAction(intervention, 'en_route')).toBe(true);
-      expect(canPerformAction(intervention, 'cancel')).toBe(true);
-    });
-
-    it('should return false for invalid actions', () => {
-      const intervention = { status: InterventionStatus.COMPLETED, id: '1' } as any;
-      expect(canPerformAction(intervention, 'en_route')).toBe(false);
-      expect(canPerformAction(intervention, 'cancel')).toBe(false);
-    });
-  });
+const base = (status: InterventionStatus) => ({
+  status,
+  scheduledDate: new Date('2026-01-10T00:00:00Z'),
+  windowStart: new Date('2026-01-10T09:00:00Z'),
+  windowEnd: new Date('2026-01-10T11:00:00Z'),
 });
 
-describe('State Transition Matrix', () => {
-  const stateMachine = new InterventionStateMachine();
+const params = {
+  reason: 'customer asked',
+  newScheduledDate: new Date('2026-01-11T00:00:00Z'),
+  newWindowStart: new Date('2026-01-11T09:00:00Z'),
+  newWindowEnd: new Date('2026-01-11T11:00:00Z'),
+  now: NOW,
+};
 
-  const allStatuses = Object.values(InterventionStatus);
+/** Expected outcome of every (status, action) pair per docs/ARCHITECTURE.md §3. */
+const EXPECTED: Record<InterventionStatus, Partial<Record<TransitionActionType, InterventionStatus>>> = {
+  SCHEDULED: { en_route: 'EN_ROUTE', cancel: 'CANCELLED', reschedule: 'SCHEDULED' },
+  EN_ROUTE: { arrived: 'ARRIVED', stop_route: 'SCHEDULED', cancel: 'CANCELLED', reschedule: 'SCHEDULED' },
+  ARRIVED: { complete: 'COMPLETED', cancel: 'CANCELLED' },
+  COMPLETED: {},
+  CANCELLED: {},
+};
 
-  describe('exhaustive transition tests', () => {
-    allStatuses.forEach((fromStatus) => {
-      const allowedTransitions = stateMachine.getValidTransitions(fromStatus);
-
-      describe(`from ${fromStatus}`, () => {
-        allowedTransitions.forEach((toStatus) => {
-          it(`should allow transition to ${toStatus}`, () => {
-            expect(stateMachine.canTransition(fromStatus, toStatus)).toBe(true);
-          });
-        });
-
-        const invalidTransitions = allStatuses.filter((s) => s !== fromStatus && !allowedTransitions.includes(s));
-        invalidTransitions.forEach((toStatus) => {
-          it(`should not allow transition to ${toStatus}`, () => {
-            expect(stateMachine.canTransition(fromStatus, toStatus)).toBe(false);
-          });
-        });
-      });
+describe('transition()', () => {
+  describe.each(STATUSES)('from %s', (from) => {
+    it.each(TRANSITION_ACTIONS)('%s', (action) => {
+      const result = transition(base(from), action, 'actor-1', params);
+      const expectedTo = EXPECTED[from][action];
+      if (expectedTo) {
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.from).toBe(from);
+        expect(result.to).toBe(expectedTo);
+        expect(result.patch.status).toBe(expectedTo);
+        expect(result.event.type).toBe(EVENT_TYPES[action]);
+        expect(result.event.payload).toMatchObject({ actorId: 'actor-1', action, fromStatus: from, toStatus: expectedTo });
+      } else {
+        expect(result).toMatchObject({ ok: false, error: 'INVALID_TRANSITION' });
+      }
     });
+  });
+
+  it('allowedActions mirrors the table', () => {
+    for (const s of STATUSES) {
+      expect(allowedActions(s).sort()).toEqual(Object.keys(EXPECTED[s]).sort());
+    }
+  });
+
+  it('stop_route returns to SCHEDULED (an action, not a status)', () => {
+    expect((STATUSES as string[]).includes('stop_route')).toBe(false);
+    const r = transition(base('EN_ROUTE'), 'stop_route', 'a');
+    expect(r).toMatchObject({ ok: true, to: 'SCHEDULED', patch: { status: 'SCHEDULED', delayMinutes: null } });
+  });
+
+  it('cancel requires a reason and stores it', () => {
+    expect(transition(base('SCHEDULED'), 'cancel', 'a', {})).toMatchObject({ ok: false, error: 'INVALID_PARAMS' });
+    const r = transition(base('ARRIVED'), 'cancel', 'a', { reason: ' no access ' });
+    expect(r).toMatchObject({ ok: true, patch: { cancelledReason: 'no access' } });
+  });
+
+  it('complete stamps completedAt', () => {
+    expect(transition(base('ARRIVED'), 'complete', 'a', { now: NOW })).toMatchObject({
+      ok: true,
+      patch: { completedAt: NOW },
+    });
+  });
+
+  it('reschedule applies the new window and validates it', () => {
+    const ok = transition(base('EN_ROUTE'), 'reschedule', 'a', params);
+    expect(ok).toMatchObject({ ok: true, patch: { windowStart: params.newWindowStart, windowEnd: params.newWindowEnd } });
+    expect(transition(base('SCHEDULED'), 'reschedule', 'a', {})).toMatchObject({ ok: false, error: 'INVALID_PARAMS' });
+    expect(
+      transition(base('SCHEDULED'), 'reschedule', 'a', { ...params, newWindowEnd: params.newWindowStart }),
+    ).toMatchObject({ ok: false, error: 'INVALID_PARAMS' });
+  });
+
+  it('does not mutate its input', () => {
+    const input = base('SCHEDULED');
+    const snapshot = JSON.stringify(input);
+    transition(input, 'en_route', 'a');
+    expect(JSON.stringify(input)).toBe(snapshot);
   });
 });

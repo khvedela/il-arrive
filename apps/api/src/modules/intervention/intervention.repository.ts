@@ -1,223 +1,193 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma, Intervention, InterventionEvent, TrackingLink } from '@prisma/client';
+import type { Intervention, InterventionEvent, InterventionStatus, Prisma, TrackingLink } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
+import type { TransitionPatch } from './intervention.state-machine';
+
+export interface ListFilters {
+  status?: InterventionStatus;
+  technicianMembershipId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  skip?: number;
+  take?: number;
+}
+
+export interface ScheduleConflict {
+  interventionId: string;
+  scheduledDate: Date;
+  windowStart: Date;
+  windowEnd: Date;
+}
+
+const PUBLIC_INCLUDE = {
+  business: true,
+  customer: true,
+  technician: { include: { user: true } },
+  trackingSessions: true,
+} satisfies Prisma.InterventionInclude;
+
+export type InterventionForPublic = Prisma.InterventionGetPayload<{ include: typeof PUBLIC_INCLUDE }>;
 
 @Injectable()
 export class InterventionRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findById(interventionId: string, businessId: string): Promise<Intervention | null> {
-    return this.prisma.intervention.findFirst({
-      where: {
-        id: interventionId,
-        businessId,
-      },
-    });
+  findById(interventionId: string, businessId: string): Promise<Intervention | null> {
+    return this.prisma.intervention.findFirst({ where: { id: interventionId, businessId } });
   }
 
-  async findManyByBusiness(
-    businessId: string,
-    options: {
-      status?: Intervention['status'];
-      technicianMembershipId?: string;
-      dateFrom?: Date;
-      dateTo?: Date;
-      skip?: number;
-      take?: number;
-    } = {},
-  ): Promise<Intervention[]> {
-    const { status, technicianMembershipId, dateFrom, dateTo, skip = 0, take = 50 } = options;
-
-    const where: Prisma.InterventionWhereInput = {
-      businessId,
-      ...(status && { status }),
-      ...(technicianMembershipId && { technicianMembershipId }),
-      ...(dateFrom && dateTo && { scheduledDate: { gte: dateFrom, lte: dateTo } }),
-      ...(dateFrom && !dateTo && { scheduledDate: { gte: dateFrom } }),
-      ...(dateTo && !dateFrom && { scheduledDate: { lte: dateTo } }),
-    };
-
+  list(businessId: string, filters: ListFilters = {}): Promise<Intervention[]> {
+    const { status, technicianMembershipId, dateFrom, dateTo, skip = 0, take = 50 } = filters;
     return this.prisma.intervention.findMany({
-      where,
+      where: {
+        businessId,
+        ...(status && { status }),
+        ...(technicianMembershipId && { technicianMembershipId }),
+        ...((dateFrom || dateTo) && {
+          scheduledDate: { ...(dateFrom && { gte: dateFrom }), ...(dateTo && { lte: dateTo }) },
+        }),
+      },
       skip,
-      take,
+      take: Math.min(take, 200),
       orderBy: { scheduledDate: 'asc' },
     });
   }
 
-  async findTodayByStatus(businessId: string): Promise<{ status: string; interventions: Intervention[] }[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+  async listToday(businessId: string): Promise<{ status: InterventionStatus; interventions: Intervention[] }[]> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
 
-    const interventions = await this.prisma.intervention.findMany({
-      where: {
-        businessId,
-        scheduledDate: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
+    const rows = await this.prisma.intervention.findMany({
+      where: { businessId, scheduledDate: { gte: start, lt: end } },
+      orderBy: { windowStart: 'asc' },
     });
-
-    const grouped: Record<string, Intervention[]> = {
-      SCHEDULED: [],
-      EN_ROUTE: [],
-      ARRIVED: [],
-      COMPLETED: [],
-      CANCELLED: [],
-    };
-
-    interventions.forEach((intervention) => {
-      if (grouped[intervention.status]) {
-        grouped[intervention.status].push(intervention);
-      }
-    });
-
-    return Object.entries(grouped).map(([status, interventions]) => ({
-      status,
-      interventions,
-    }));
+    const statuses: InterventionStatus[] = ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'];
+    return statuses.map((status) => ({ status, interventions: rows.filter((r) => r.status === status) }));
   }
 
-  async create(data: Prisma.InterventionCreateInput): Promise<Intervention> {
-    return this.prisma.intervention.create({
-      data,
-    });
+  create(data: Prisma.InterventionUncheckedCreateInput): Promise<Intervention> {
+    return this.prisma.intervention.create({ data });
   }
 
-  async update(
+  /** Tenant-scoped update that never changes status (details, assignment). */
+  async updateDetails(
     interventionId: string,
     businessId: string,
-    data: Prisma.InterventionUpdateInput,
-  ): Promise<Intervention> {
-    return this.prisma.intervention.update({
-      where: {
-        id: interventionId,
-        businessId,
-      },
+    data: Prisma.InterventionUncheckedUpdateInput,
+  ): Promise<Intervention | null> {
+    const { count } = await this.prisma.intervention.updateMany({
+      where: { id: interventionId, businessId },
       data,
     });
+    return count ? this.findById(interventionId, businessId) : null;
   }
 
-  async delete(interventionId: string, businessId: string): Promise<Intervention> {
-    return this.prisma.intervention.delete({
-      where: {
-        id: interventionId,
-        businessId,
-      },
+  /**
+   * Applies a transition patch and writes its timeline event in one transaction.
+   * Guarded on `fromStatus` so concurrent transitions cannot both win; returns null on a lost race.
+   */
+  async applyTransition(
+    interventionId: string,
+    businessId: string,
+    fromStatus: InterventionStatus,
+    patch: TransitionPatch,
+    event: { type: string; actorUserId: string; payload: Prisma.InputJsonValue },
+  ): Promise<Intervention | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.intervention.updateMany({
+        where: { id: interventionId, businessId, status: fromStatus },
+        data: patch,
+      });
+      if (!count) return null;
+      await tx.interventionEvent.create({
+        data: { interventionId, type: event.type, actorUserId: event.actorUserId, payload: event.payload },
+      });
+      if (patch.status !== 'EN_ROUTE') {
+        // ARRIVED, COMPLETED, CANCELLED, stop_route and reschedule all end the location session.
+        await tx.trackingSession.updateMany({
+          where: { interventionId, endedAt: null },
+          data: { endedAt: new Date(), lastLat: null, lastLng: null, lastAccuracy: null },
+        });
+      }
+      return tx.intervention.findFirst({ where: { id: interventionId, businessId } });
     });
   }
 
-  async findInterventionEvent(interventionId: string, businessId: string): Promise<InterventionEvent[]> {
+  async delete(interventionId: string, businessId: string): Promise<boolean> {
+    const { count } = await this.prisma.intervention.deleteMany({ where: { id: interventionId, businessId } });
+    return count > 0;
+  }
+
+  listEvents(interventionId: string, businessId: string): Promise<InterventionEvent[]> {
     return this.prisma.interventionEvent.findMany({
-      where: {
-        interventionId,
-        intervention: {
-          businessId,
-        },
-      },
+      where: { interventionId, intervention: { businessId } },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async createInterventionEvent(data: Prisma.InterventionEventCreateInput): Promise<InterventionEvent> {
-    return this.prisma.interventionEvent.create({
-      data,
-    });
+  createEvent(interventionId: string, type: string, actorUserId: string, payload: Prisma.InputJsonValue) {
+    return this.prisma.interventionEvent.create({ data: { interventionId, type, actorUserId, payload } });
   }
 
-  async findTrackingLinkByTokenHash(tokenHash: string): Promise<TrackingLink | null> {
+  async customerBelongsToBusiness(customerId: string, businessId: string): Promise<boolean> {
+    return (await this.prisma.customer.count({ where: { id: customerId, businessId } })) > 0;
+  }
+
+  async isTechnicianOfBusiness(membershipId: string, businessId: string): Promise<boolean> {
+    return (await this.prisma.membership.count({ where: { id: membershipId, businessId, isTechnician: true } })) > 0;
+  }
+
+  /** Resolves the caller's technician membership id for a business (the user id is not the membership id). */
+  async findTechnicianMembershipId(userId: string, businessId: string): Promise<string | null> {
+    const m = await this.prisma.membership.findFirst({
+      where: { userId, businessId, isTechnician: true },
+      select: { id: true },
+    });
+    return m?.id ?? null;
+  }
+
+  // --- tracking links (only the SHA-256 hash is ever stored) ---
+
+  findActiveLinkByHash(tokenHash: string): Promise<TrackingLink | null> {
+    return this.prisma.trackingLink.findFirst({ where: { tokenHash, revokedAt: null } });
+  }
+
+  findActiveLinkByIntervention(interventionId: string, businessId: string): Promise<TrackingLink | null> {
     return this.prisma.trackingLink.findFirst({
-      where: {
-        tokenHash,
-        revokedAt: null,
-        expiresAt: {
-          gte: new Date(),
-        },
-      },
+      where: { interventionId, intervention: { businessId }, revokedAt: null },
     });
   }
 
-  async createTrackingLink(data: Prisma.TrackingLinkCreateInput): Promise<TrackingLink> {
-    return this.prisma.trackingLink.create({
-      data,
+  /** Revokes every active link of the intervention and issues a new one atomically. */
+  async replaceLink(interventionId: string, tokenHash: string, expiresAt: Date): Promise<TrackingLink> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.trackingLink.updateMany({
+        where: { interventionId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return tx.trackingLink.create({ data: { interventionId, tokenHash, expiresAt } });
     });
   }
 
-  async findTrackingLinkByInterventionId(
-    interventionId: string,
-    businessId: string,
-  ): Promise<TrackingLink | null> {
-    return this.prisma.trackingLink.findFirst({
-      where: {
-        interventionId,
-        intervention: {
-          businessId,
-        },
-        revokedAt: null,
-        expiresAt: {
-          gte: new Date(),
-        },
-      },
+  async revokeLinks(interventionId: string, businessId: string): Promise<number> {
+    const { count } = await this.prisma.trackingLink.updateMany({
+      where: { interventionId, intervention: { businessId }, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return count;
+  }
+
+  async extendLinks(interventionId: string, expiresAt: Date): Promise<void> {
+    await this.prisma.trackingLink.updateMany({
+      where: { interventionId, revokedAt: null },
+      data: { expiresAt },
     });
   }
 
-  async regenerateTrackingLink(
-    trackingLinkId: string,
-    businessId: string,
-  ): Promise<TrackingLink | null> {
-    const trackingLink = await this.prisma.trackingLink.findFirst({
-      where: {
-        id: trackingLinkId,
-        intervention: {
-          businessId,
-        },
-      },
-    });
-
-    if (!trackingLink) {
-      return null;
-    }
-
-    await this.prisma.trackingLink.update({
-      where: { id: trackingLinkId },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
-
-    return this.prisma.trackingLink.create({
-      data: {
-        interventionId: trackingLink.interventionId,
-        tokenHash: trackingLink.tokenHash,
-        createdAt: new Date(),
-        expiresAt: new Date(),
-      },
-    });
-  }
-
-  async revokeTrackingLink(trackingLinkId: string, businessId: string): Promise<TrackingLink | null> {
-    const trackingLink = await this.prisma.trackingLink.findFirst({
-      where: {
-        id: trackingLinkId,
-        intervention: {
-          businessId,
-        },
-      },
-    });
-
-    if (!trackingLink) {
-      return null;
-    }
-
-    return this.prisma.trackingLink.update({
-      where: { id: trackingLinkId },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+  findForPublic(interventionId: string): Promise<InterventionForPublic | null> {
+    return this.prisma.intervention.findUnique({ where: { id: interventionId }, include: PUBLIC_INCLUDE });
   }
 
   async findConflicts(
@@ -226,49 +196,18 @@ export class InterventionRepository {
     windowStart: Date,
     windowEnd: Date,
     excludeInterventionId?: string,
-  ): Promise<
-    {
-      interventionId: string;
-      scheduledDate: Date;
-      windowStart: Date;
-      windowEnd: Date;
-    }[]
-  > {
-    const where: Prisma.InterventionWhereInput = {
-      businessId,
-      technicianMembershipId,
-      NOT: excludeInterventionId ? { id: excludeInterventionId } : undefined,
-      AND: [
-        {
-          OR: [
-            { windowStart: { lte: windowEnd } },
-            { windowEnd: { gte: windowStart } },
-          ],
-        },
-        {
-          NOT: [
-            {
-              AND: [
-                { windowEnd: { lte: windowStart } },
-                { windowStart: { gte: windowEnd } },
-              ],
-            },
-          ],
-        },
-      ],
-      status: {
-        notIn: ['CANCELLED', 'COMPLETED'],
+  ): Promise<ScheduleConflict[]> {
+    const rows = await this.prisma.intervention.findMany({
+      where: {
+        businessId,
+        technicianMembershipId,
+        status: { notIn: ['CANCELLED', 'COMPLETED'] },
+        windowStart: { lt: windowEnd },
+        windowEnd: { gt: windowStart },
+        ...(excludeInterventionId && { id: { not: excludeInterventionId } }),
       },
-    };
-
-    return this.prisma.intervention.findMany({
-      where,
-      select: {
-        id: true,
-        scheduledDate: true,
-        windowStart: true,
-        windowEnd: true,
-      },
-    }).then((rows) => rows.map(({ id, ...rest }) => ({ interventionId: id, ...rest })));
+      select: { id: true, scheduledDate: true, windowStart: true, windowEnd: true },
+    });
+    return rows.map(({ id, ...rest }) => ({ interventionId: id, ...rest }));
   }
 }

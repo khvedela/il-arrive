@@ -22,7 +22,6 @@ import { InterventionService } from './intervention.service';
 import {
   AssignTechnicianDto,
   CreateInterventionDto,
-  InterventionLocationDto,
   ReportDelayDto,
   TransitionAction,
   UpdateInterventionDto,
@@ -40,7 +39,7 @@ export class InterventionController {
   async createIntervention(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateInterventionDto,
-  ): Promise<{ intervention: any; conflicts: any[] }> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const actorId = user.userId;
     return this.interventionService.createIntervention(businessId, actorId, dto);
@@ -64,7 +63,7 @@ export class InterventionController {
     @Query('dateTo') dateTo?: string,
     @Query('skip') skip?: number,
     @Query('take') take?: number,
-  ): Promise<any[]> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     return this.interventionService.listInterventions(
       businessId,
@@ -81,7 +80,7 @@ export class InterventionController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiOperation({ summary: 'Get today interventions grouped by status' })
-  async getTodayInterventions(@CurrentUser() user: AuthenticatedUser): Promise<any[]> {
+  async getTodayInterventions(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
     const businessId = user.activeBusinessId;
     return this.interventionService.getTodayInterventions(businessId);
   }
@@ -91,7 +90,7 @@ export class InterventionController {
   @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get intervention by ID with timeline' })
-  async getIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<any> {
+  async getIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<unknown> {
     const businessId = user.activeBusinessId;
     return this.interventionService.getIntervention(businessId, id);
   }
@@ -105,7 +104,7 @@ export class InterventionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateInterventionDto,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const actorId = user.userId;
     return this.interventionService.updateIntervention(businessId, id, actorId, dto);
@@ -120,7 +119,7 @@ export class InterventionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: AssignTechnicianDto,
-  ): Promise<{ intervention: any; conflicts: any[] }> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const actorId = user.userId;
     return this.interventionService.assignTechnician(businessId, id, actorId, dto);
@@ -135,7 +134,7 @@ export class InterventionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: TransitionAction,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const actorId = user.userId;
     return this.interventionService.cancelIntervention(businessId, id, actorId, dto.reason || '');
@@ -150,10 +149,19 @@ export class InterventionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: TransitionAction,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const actorId = user.userId;
     return this.interventionService.rescheduleIntervention(businessId, id, actorId, dto);
+  }
+
+  @Post(':id/tracking-link/regenerate')
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
+  @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
+  @ApiOperation({ summary: 'Revoke the current tracking link and issue a new one (URL returned once)' })
+  async regenerateTrackingLink(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.interventionService.regenerateTrackingLink(user.activeBusinessId, id);
   }
 
   @Delete(':id')
@@ -164,7 +172,7 @@ export class InterventionController {
   @ApiOperation({ summary: 'Delete intervention' })
   async deleteIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
     const businessId = user.activeBusinessId;
-    await this.interventionService.deleteIntervention(businessId, id, user.userId);
+    await this.interventionService.deleteIntervention(businessId, id);
   }
 }
 
@@ -181,7 +189,7 @@ export class TechnicianInterventionController {
   async getMyInterventions(
     @CurrentUser() user: AuthenticatedUser,
     @Query('status') status?: string,
-  ): Promise<any[]> {
+  ): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const technicianId = user.userId;
     return this.interventionService.getMyInterventions(businessId, technicianId, status);
@@ -192,7 +200,7 @@ export class TechnicianInterventionController {
   @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get technician\'s intervention by ID' })
-  async getMyIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<any> {
+  async getMyIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<unknown> {
     const businessId = user.activeBusinessId;
     const technicianId = user.userId;
     return this.interventionService.getMyIntervention(businessId, id, technicianId);

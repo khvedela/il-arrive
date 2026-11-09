@@ -1,436 +1,95 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { InterventionStateMachine, resolveConflict } from './intervention.state-machine';
-import { InterventionRepository } from './intervention.repository';
-import {
-  createInterventionArrivedEvent,
-  createInterventionCancelledEvent,
-  createInterventionCompletedEvent,
-  createInterventionCreatedEvent,
-  createInterventionDelayedEvent,
-  createInterventionEnRouteEvent,
-  createInterventionRescheduledEvent,
-  InterventionEvent,
-} from './intervention.event';
+import type { Intervention, InterventionEvent, InterventionStatus } from '@prisma/client';
 import type {
   AssignTechnicianDto,
   CreateInterventionDto,
-  InterventionLocationDto,
   ReportDelayDto,
   TransitionAction,
   UpdateInterventionDto,
 } from '@il-arrive/contracts';
+import { InterventionRepository, ScheduleConflict } from './intervention.repository';
+import {
+  DELAY_ALLOWED_STATUSES,
+  TransitionActionType,
+  TransitionParams,
+  transition,
+} from './intervention.state-machine';
+import { IssuedTrackingLink, TrackingLinkService, linkExpiry } from './tracking-link.service';
+
+export interface InterventionWithTimeline {
+  intervention: Intervention;
+  timeline: InterventionEvent[];
+}
+
+const STATUSES: readonly InterventionStatus[] = ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'];
+
+function parseDate(value: string | undefined, field: string): Date {
+  const date = new Date(value ?? '');
+  if (Number.isNaN(date.getTime())) throw new BadRequestException(`${field} must be a valid ISO date`);
+  return date;
+}
+
+function parseStatus(status: string | undefined): InterventionStatus | undefined {
+  if (status === undefined) return undefined;
+  if (!(STATUSES as readonly string[]).includes(status)) throw new BadRequestException(`Unknown status ${status}`);
+  return status as InterventionStatus;
+}
 
 @Injectable()
 export class InterventionService {
   constructor(
-    private readonly interventionRepository: InterventionRepository,
-    private readonly stateMachine: InterventionStateMachine,
+    private readonly repository: InterventionRepository,
+    private readonly trackingLinks: TrackingLinkService,
   ) {}
+
+  // --- dispatcher / owner ---
 
   async createIntervention(
     businessId: string,
     actorId: string,
     dto: CreateInterventionDto,
-  ): Promise<{ intervention: any; conflicts: any[] }> {
-    const conflicts = await this.findConflicts(
-      businessId,
-      dto.technicianMembershipId,
-      new Date(dto.windowStart),
-      new Date(dto.windowEnd),
-    );
-
-    if (conflicts.length > 0 && dto.technicianMembershipId) {
-      throw new ConflictException(`Technician has ${conflicts.length} conflicting interventions`);
+  ): Promise<{ intervention: Intervention; trackingLink: IssuedTrackingLink }> {
+    const windowStart = parseDate(dto.windowStart, 'windowStart');
+    const windowEnd = parseDate(dto.windowEnd, 'windowEnd');
+    if (windowStart >= windowEnd) throw new BadRequestException('windowStart must be before windowEnd');
+    if (!(await this.repository.customerBelongsToBusiness(dto.customerId, businessId))) {
+      throw new NotFoundException(`Customer ${dto.customerId} not found`);
     }
 
-    const intervention = await this.interventionRepository.create({
-      business: { connect: { id: businessId } },
+    const intervention = await this.repository.create({
+      businessId,
       customerId: dto.customerId,
-      technicianMembershipId: dto.technicianMembershipId || undefined,
       addressLabel: dto.addressLabel,
       addressLat: dto.addressLat,
       addressLng: dto.addressLng,
-      scheduledDate: new Date(dto.scheduledDate),
-      windowStart: new Date(dto.windowStart),
-      windowEnd: new Date(dto.windowEnd),
+      scheduledDate: parseDate(dto.scheduledDate, 'scheduledDate'),
+      windowStart,
+      windowEnd,
       description: dto.description,
       status: 'SCHEDULED',
     });
-
-    const createdEvent = createInterventionCreatedEvent({
-      interventionId: intervention.id,
+    await this.repository.createEvent(intervention.id, 'intervention.created', actorId, {
       actorId,
-      customerId: dto.customerId,
-      technicianMembershipId: dto.technicianMembershipId || undefined,
       status: intervention.status,
-      scheduledDate: intervention.scheduledDate.toISOString(),
-      windowStart: intervention.windowStart.toISOString(),
-      windowEnd: intervention.windowEnd.toISOString(),
-      addressLabel: dto.addressLabel,
-      addressLat: dto.addressLat,
-      addressLng: dto.addressLng,
-      description: dto.description,
     });
 
-    await this.emitEvent(businessId, intervention.id, createdEvent);
-
-    return { intervention, conflicts };
+    // Links are generated at creation (ARCHITECTURE §4); the raw token is returned once, here.
+    const trackingLink = await this.trackingLinks.issue(intervention.id, intervention.windowEnd);
+    return { intervention, trackingLink };
   }
 
-  async getIntervention(businessId: string, interventionId: string): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    const timeline = await this.interventionRepository.findInterventionEvent(interventionId, businessId);
-
-    return {
-      intervention,
-      timeline,
-    };
+  async getIntervention(businessId: string, interventionId: string): Promise<InterventionWithTimeline> {
+    const intervention = await this.requireIntervention(businessId, interventionId);
+    return { intervention, timeline: await this.repository.listEvents(interventionId, businessId) };
   }
 
-  async updateIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-    dto: UpdateInterventionDto,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    if (intervention.status === 'COMPLETED' || intervention.status === 'CANCELLED') {
-      throw new ForbiddenException(`Cannot update ${intervention.status} intervention`);
-    }
-
-    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
-      windowStart: dto.windowStart ? new Date(dto.windowStart) : undefined,
-      windowEnd: dto.windowEnd ? new Date(dto.windowEnd) : undefined,
-      internalNotes: dto.internalNotes,
-      cancelledReason: reason,
-    });
-
-    return {
-      intervention: updatedIntervention,
-      conflicts: [],
-    };
-  }
-
-  async assignTechnician(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-    dto: AssignTechnicianDto,
-  ): Promise<{ intervention: any; conflicts: any[] }> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    const conflicts = await this.findConflicts(
-      businessId,
-      dto.technicianMembershipId,
-      intervention.windowStart,
-      intervention.windowEnd,
-      interventionId,
-    );
-
-    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
-      technicianMembershipId: dto.technicianMembershipId,
-    });
-
-    return { intervention: updatedIntervention, conflicts };
-  }
-
-  async cancelIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-    reason: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, 'cancel');
-
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
-      intervention,
-      'cancel',
-      actorId,
-      reason,
-    );
-
-    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
-      cancelledReason: reason,
-    });
-
-    const cancelledEvent = createInterventionCancelledEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
-      action: 'cancel',
-      reason,
-    });
-
-    await this.emitEvent(businessId, intervention.id, cancelledEvent);
-
-    return updatedIntervention;
-  }
-
-  async rescheduleIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-    dto: TransitionAction,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, dto.action);
-
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
-      intervention,
-      dto.action,
-      actorId,
-      dto.reason,
-      dto.newScheduledDate,
-      dto.newWindowStart,
-      dto.newWindowEnd,
-    );
-
-    const updateData: Prisma.InterventionUpdateInput = {
-      status: updatedIntervention.status,
-      cancelledReason: reason,
-    };
-
-    await this.interventionRepository.update(interventionId, businessId, updateData);
-
-    const rescheduledEvent = createInterventionRescheduledEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
-      action: dto.action,
-      reason: dto.reason,
-      newScheduledDate: dto.newScheduledDate,
-      newWindowStart: dto.newWindowStart,
-      newWindowEnd: dto.newWindowEnd,
-    });
-
-    await this.emitEvent(businessId, intervention.id, rescheduledEvent);
-
-    return updatedIntervention;
-  }
-
-  async enRouteIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, 'en_route');
-
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
-      intervention,
-      'en_route',
-      actorId,
-    );
-
-    await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
-    });
-
-    const enRouteEvent = createInterventionEnRouteEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
-      action: 'en_route',
-    });
-
-    await this.emitEvent(businessId, intervention.id, enRouteEvent);
-
-    return updatedIntervention;
-  }
-
-  async stopRouteIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, 'stop_route');
-
-    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
-      intervention,
-      'stop_route',
-      actorId,
-      dto.reason,
-    );
-
-    await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention2.status,
-      cancelledReason: dto.reason,
-    });
-
-    const stopRouteEvent = createInterventionEnRouteEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention2.status,
-      action: 'stop_route',
-      reason: dto.reason,
-    });
-
-    await this.emitEvent(businessId, intervention.id, stopRouteEvent);
-
-    return updatedIntervention;
-  }
-
-  async arrivedIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, 'arrived');
-
-    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
-      intervention,
-      'arrived',
-      actorId,
-      dto.reason,
-    );
-
-    await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention2.status,
-      cancelledReason: dto.reason,
-    });
-
-    const arrivedEvent = createInterventionArrivedEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention2.status,
-      action: 'arrived',
-      reason: dto.reason,
-    });
-
-    await this.emitEvent(businessId, intervention.id, arrivedEvent);
-
-    return updatedIntervention;
-  }
-
-  async completeIntervention(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    this.stateMachine.validateTransition(intervention, 'complete');
-
-    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
-      intervention,
-      'complete',
-      actorId,
-      reason,
-    );
-
-    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention2.status,
-      cancelledReason: reason,
-    });
-
-    const completedEvent = createInterventionCompletedEvent({
-      interventionId: intervention.id,
-      actorId,
-      fromStatus: intervention.status,
-      toStatus: updatedIntervention2.status,
-      action: 'complete',
-      reason,
-    });
-
-    await this.emitEvent(businessId, intervention.id, completedEvent);
-
-    return updatedIntervention;
-  }
-
-  async reportDelay(
-    businessId: string,
-    interventionId: string,
-    actorId: string,
-    dto: ReportDelayDto,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
-    }
-
-    const delayedEvent = createInterventionDelayedEvent({
-      interventionId: intervention.id,
-      actorId,
-      delayMinutes: dto.delayMinutes,
-      delayReason: dto.delayReason,
-    });
-
-    await this.emitEvent(businessId, intervention.id, delayedEvent);
-
-    return {
-      intervention,
-      delayedEvent,
-    };
-  }
-
-  async findConflicts(
-    businessId: string,
-    technicianMembershipId: string,
-    windowStart: Date,
-    windowEnd: Date,
-    excludeInterventionId?: string,
-  ): Promise<any[]> {
-    return this.interventionRepository.findConflicts(
-      businessId,
-      technicianMembershipId,
-      windowStart,
-      windowEnd,
-      excludeInterventionId,
-    );
-  }
-
-  async listInterventions(
+  listInterventions(
     businessId: string,
     status?: string,
     technicianId?: string,
@@ -438,10 +97,9 @@ export class InterventionService {
     dateTo?: Date,
     skip?: number,
     take?: number,
-  ): Promise<any[]> {
-    return this.interventionRepository.findManyByBusiness({
-      businessId,
-      status: status as any,
+  ): Promise<Intervention[]> {
+    return this.repository.list(businessId, {
+      status: parseStatus(status),
       technicianMembershipId: technicianId,
       dateFrom,
       dateTo,
@@ -450,54 +108,196 @@ export class InterventionService {
     });
   }
 
-  async getTodayInterventions(businessId: string): Promise<any[]> {
-    return this.interventionRepository.findTodayByStatus(businessId);
+  getTodayInterventions(businessId: string) {
+    return this.repository.listToday(businessId);
   }
 
-  async deleteIntervention(
+  async updateIntervention(
     businessId: string,
     interventionId: string,
     actorId: string,
-  ): Promise<void> {
-    await this.interventionRepository.delete(interventionId, businessId);
-  }
+    dto: UpdateInterventionDto,
+  ): Promise<{ intervention: Intervention; conflicts: ScheduleConflict[] }> {
+    const current = await this.requireIntervention(businessId, interventionId);
+    if (current.status === 'COMPLETED' || current.status === 'CANCELLED') {
+      throw new ForbiddenException(`Cannot update a ${current.status} intervention`);
+    }
 
-  async getMyInterventions(
-    businessId: string,
-    technicianId: string,
-    status?: string,
-  ): Promise<any[]> {
-    return this.interventionRepository.findManyByBusiness({
-      businessId,
-      status: status as any,
-      technicianMembershipId: technicianId,
+    const windowStart = dto.windowStart ? parseDate(dto.windowStart, 'windowStart') : current.windowStart;
+    const windowEnd = dto.windowEnd ? parseDate(dto.windowEnd, 'windowEnd') : current.windowEnd;
+    if (windowStart >= windowEnd) throw new BadRequestException('windowStart must be before windowEnd');
+
+    const updated = await this.repository.updateDetails(interventionId, businessId, {
+      windowStart,
+      windowEnd,
+      description: dto.description,
+      internalNotes: dto.internalNotes,
     });
+    if (!updated) throw new NotFoundException(`Intervention ${interventionId} not found`);
+
+    if (dto.windowEnd) await this.repository.extendLinks(interventionId, linkExpiry(windowEnd));
+    await this.repository.createEvent(interventionId, 'intervention.updated', actorId, { actorId });
+
+    return { intervention: updated, conflicts: await this.conflictsFor(updated) };
   }
 
-  async getMyIntervention(
+  async assignTechnician(
     businessId: string,
     interventionId: string,
-    technicianId: string,
-  ): Promise<any> {
-    const intervention = await this.interventionRepository.findById(interventionId, businessId);
-    if (!intervention) {
-      throw new NotFoundException(`Intervention ${interventionId} not found`);
+    actorId: string,
+    dto: AssignTechnicianDto,
+  ): Promise<{ intervention: Intervention; conflicts: ScheduleConflict[] }> {
+    const current = await this.requireIntervention(businessId, interventionId);
+    if (current.status === 'COMPLETED' || current.status === 'CANCELLED') {
+      throw new ForbiddenException(`Cannot assign a ${current.status} intervention`);
     }
-    if (intervention.technicianMembershipId !== technicianId) {
-      throw new ForbiddenException(`Intervention ${interventionId} not assigned to you`);
+    if (!(await this.repository.isTechnicianOfBusiness(dto.technicianMembershipId, businessId))) {
+      throw new NotFoundException(`Technician ${dto.technicianMembershipId} not found`);
     }
-    const timeline = await this.interventionRepository.findInterventionEvent(interventionId, businessId);
-    return { intervention, timeline };
+
+    const updated = await this.repository.updateDetails(interventionId, businessId, {
+      technicianMembershipId: dto.technicianMembershipId,
+    });
+    if (!updated) throw new NotFoundException(`Intervention ${interventionId} not found`);
+
+    await this.repository.createEvent(interventionId, 'intervention.assigned', actorId, {
+      actorId,
+      technicianMembershipId: dto.technicianMembershipId,
+    });
+    return { intervention: updated, conflicts: await this.conflictsFor(updated) };
   }
 
-  private async emitEvent(businessId: string, interventionId: string, event: InterventionEvent): Promise<void> {
-    const interventionEvent = await this.interventionRepository.createInterventionEvent({
-      intervention: { connect: { id: interventionId } },
-      type: event.eventName,
-      actorUserId: event.payload.actorId,
-      payload: JSON.stringify(event.payload),
-    });
+  cancelIntervention(businessId: string, interventionId: string, actorId: string, reason: string) {
+    return this.perform(businessId, interventionId, actorId, 'cancel', { reason });
+  }
 
-    console.log(`[InterventionEvent] Intervention ${interventionId}: ${event.eventName}`);
+  rescheduleIntervention(businessId: string, interventionId: string, actorId: string, dto: TransitionAction) {
+    return this.perform(businessId, interventionId, actorId, 'reschedule', {
+      reason: dto.reason,
+      newScheduledDate: parseDate(dto.newScheduledDate, 'newScheduledDate'),
+      newWindowStart: parseDate(dto.newWindowStart, 'newWindowStart'),
+      newWindowEnd: parseDate(dto.newWindowEnd, 'newWindowEnd'),
+    });
+  }
+
+  async deleteIntervention(businessId: string, interventionId: string): Promise<void> {
+    if (!(await this.repository.delete(interventionId, businessId))) {
+      throw new NotFoundException(`Intervention ${interventionId} not found`);
+    }
+  }
+
+  /** Copy / resend / regenerate all rotate the token: the raw value of an existing link is unrecoverable. */
+  regenerateTrackingLink(businessId: string, interventionId: string): Promise<IssuedTrackingLink> {
+    return this.trackingLinks.regenerate(businessId, interventionId);
+  }
+
+  // --- technician (identified by user id; resolved to their membership) ---
+
+  async getMyInterventions(businessId: string, userId: string, status?: string): Promise<Intervention[]> {
+    const membershipId = await this.requireTechnicianMembership(businessId, userId);
+    return this.repository.list(businessId, { status: parseStatus(status), technicianMembershipId: membershipId });
+  }
+
+  async getMyIntervention(businessId: string, interventionId: string, userId: string): Promise<InterventionWithTimeline> {
+    await this.requireAssigned(businessId, interventionId, userId);
+    return this.getIntervention(businessId, interventionId);
+  }
+
+  async enRouteIntervention(businessId: string, interventionId: string, userId: string) {
+    await this.requireAssigned(businessId, interventionId, userId);
+    return this.perform(businessId, interventionId, userId, 'en_route');
+  }
+
+  async stopRouteIntervention(businessId: string, interventionId: string, userId: string) {
+    await this.requireAssigned(businessId, interventionId, userId);
+    return this.perform(businessId, interventionId, userId, 'stop_route');
+  }
+
+  async arrivedIntervention(businessId: string, interventionId: string, userId: string) {
+    await this.requireAssigned(businessId, interventionId, userId);
+    return this.perform(businessId, interventionId, userId, 'arrived');
+  }
+
+  async completeIntervention(businessId: string, interventionId: string, userId: string) {
+    await this.requireAssigned(businessId, interventionId, userId);
+    return this.perform(businessId, interventionId, userId, 'complete');
+  }
+
+  /** Delay is an overlay (delayMinutes + reason) on SCHEDULED/EN_ROUTE, not a state. */
+  async reportDelay(businessId: string, interventionId: string, userId: string, dto: ReportDelayDto): Promise<Intervention> {
+    const intervention = await this.requireAssigned(businessId, interventionId, userId);
+    if (!DELAY_ALLOWED_STATUSES.includes(intervention.status)) {
+      throw new ConflictException(`Cannot report a delay on a ${intervention.status} intervention`);
+    }
+    if (!Number.isInteger(dto.delayMinutes) || dto.delayMinutes <= 0 || dto.delayMinutes > 24 * 60) {
+      throw new BadRequestException('delayMinutes must be a positive integer (max 1440)');
+    }
+    const updated = await this.repository.updateDetails(interventionId, businessId, {
+      delayMinutes: dto.delayMinutes,
+      delayReason: dto.delayReason,
+    });
+    if (!updated) throw new NotFoundException(`Intervention ${interventionId} not found`);
+    await this.repository.createEvent(interventionId, 'intervention.delayed', userId, {
+      actorId: userId,
+      delayMinutes: dto.delayMinutes,
+      delayReason: dto.delayReason,
+    });
+    return updated;
+  }
+
+  // --- internals ---
+
+  /** Loads, runs the pure transition(), persists patch + event atomically (guarded on the old status). */
+  private async perform(
+    businessId: string,
+    interventionId: string,
+    actorId: string,
+    action: TransitionActionType,
+    params: TransitionParams = {},
+  ): Promise<Intervention> {
+    const current = await this.requireIntervention(businessId, interventionId);
+    const result = transition(current, action, actorId, params);
+    if (!result.ok) {
+      if (result.error === 'INVALID_PARAMS') throw new BadRequestException(result.message);
+      throw new ConflictException(result.message);
+    }
+
+    const updated = await this.repository.applyTransition(interventionId, businessId, current.status, result.patch, {
+      type: result.event.type,
+      actorUserId: actorId,
+      payload: JSON.parse(JSON.stringify(result.event.payload)),
+    });
+    if (!updated) throw new ConflictException('Intervention was modified concurrently, please retry');
+
+    if (action === 'reschedule' && result.patch.windowEnd) {
+      await this.repository.extendLinks(interventionId, linkExpiry(result.patch.windowEnd));
+    }
+    return updated;
+  }
+
+  private async requireIntervention(businessId: string, interventionId: string): Promise<Intervention> {
+    const intervention = await this.repository.findById(interventionId, businessId);
+    if (!intervention) throw new NotFoundException(`Intervention ${interventionId} not found`);
+    return intervention;
+  }
+
+  private async requireTechnicianMembership(businessId: string, userId: string): Promise<string> {
+    const membershipId = await this.repository.findTechnicianMembershipId(userId, businessId);
+    if (!membershipId) throw new ForbiddenException('Not a technician of this business');
+    return membershipId;
+  }
+
+  private async requireAssigned(businessId: string, interventionId: string, userId: string): Promise<Intervention> {
+    const membershipId = await this.requireTechnicianMembership(businessId, userId);
+    const intervention = await this.requireIntervention(businessId, interventionId);
+    if (intervention.technicianMembershipId !== membershipId) {
+      throw new ForbiddenException(`Intervention ${interventionId} is not assigned to you`);
+    }
+    return intervention;
+  }
+
+  private async conflictsFor(i: Intervention): Promise<ScheduleConflict[]> {
+    if (!i.technicianMembershipId) return [];
+    return this.repository.findConflicts(i.businessId, i.technicianMembershipId, i.windowStart, i.windowEnd, i.id);
   }
 }

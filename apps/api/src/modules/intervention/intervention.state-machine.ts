@@ -1,14 +1,16 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { InterventionStatus } from './intervention-status';
-import type { Intervention } from '@prisma/client';
+import { InterventionStatus } from '@prisma/client';
 
+/** Actions a user can request. `stop_route` and `reschedule` are actions, not statuses. */
 export type TransitionActionType = 'en_route' | 'stop_route' | 'arrived' | 'complete' | 'cancel' | 'reschedule';
 
-export interface TransitionResult {
-  success: boolean;
-  intervention: Intervention | null;
-  error?: string;
-}
+export const TRANSITION_ACTIONS: readonly TransitionActionType[] = [
+  'en_route',
+  'stop_route',
+  'arrived',
+  'complete',
+  'cancel',
+  'reschedule',
+];
 
 export interface StateTransition {
   from: InterventionStatus;
@@ -16,186 +18,140 @@ export interface StateTransition {
   action: TransitionActionType;
 }
 
-export const VALID_TRANSITIONS: StateTransition[] = [
-  { from: InterventionStatus.SCHEDULED, to: InterventionStatus.EN_ROUTE, action: 'en_route' },
-  { from: InterventionStatus.EN_ROUTE, to: InterventionStatus.ARRIVED, action: 'arrived' },
-  { from: InterventionStatus.EN_ROUTE, to: InterventionStatus.SCHEDULED, action: 'stop_route' },
-  { from: InterventionStatus.ARRIVED, to: InterventionStatus.COMPLETED, action: 'complete' },
-  { from: InterventionStatus.ARRIVED, to: InterventionStatus.SCHEDULED, action: 'reschedule' },
-  { from: InterventionStatus.ARRIVED, to: InterventionStatus.CANCELLED, action: 'cancel' },
-  { from: InterventionStatus.SCHEDULED, to: InterventionStatus.CANCELLED, action: 'cancel' },
-  { from: InterventionStatus.SCHEDULED, to: InterventionStatus.SCHEDULED, action: 'reschedule' },
-  { from: InterventionStatus.COMPLETED, to: InterventionStatus.CANCELLED, action: 'cancel' },
+/** docs/ARCHITECTURE.md §3 — the single source of truth for allowed transitions. */
+export const VALID_TRANSITIONS: readonly StateTransition[] = [
+  { from: 'SCHEDULED', to: 'EN_ROUTE', action: 'en_route' },
+  { from: 'EN_ROUTE', to: 'ARRIVED', action: 'arrived' },
+  { from: 'EN_ROUTE', to: 'SCHEDULED', action: 'stop_route' },
+  { from: 'ARRIVED', to: 'COMPLETED', action: 'complete' },
+  { from: 'SCHEDULED', to: 'CANCELLED', action: 'cancel' },
+  { from: 'EN_ROUTE', to: 'CANCELLED', action: 'cancel' },
+  { from: 'ARRIVED', to: 'CANCELLED', action: 'cancel' },
+  { from: 'SCHEDULED', to: 'SCHEDULED', action: 'reschedule' },
+  { from: 'EN_ROUTE', to: 'SCHEDULED', action: 'reschedule' },
 ];
 
-export function getStateTransition(from: InterventionStatus, action: TransitionActionType): StateTransition | null {
-  const transition = VALID_TRANSITIONS.find(
-    (t) => t.from === from && t.action === action && (action !== 'reschedule' || from !== InterventionStatus.EN_ROUTE),
-  );
-  return transition ?? null;
+export const EVENT_TYPES: Record<TransitionActionType, string> = {
+  en_route: 'intervention.en_route',
+  stop_route: 'intervention.stop_route',
+  arrived: 'intervention.arrived',
+  complete: 'intervention.completed',
+  cancel: 'intervention.cancelled',
+  reschedule: 'intervention.rescheduled',
+};
+
+/** Statuses on which a delay may be reported (overlay, not a state). */
+export const DELAY_ALLOWED_STATUSES: readonly InterventionStatus[] = ['SCHEDULED', 'EN_ROUTE'];
+
+export interface TransitionInput {
+  status: InterventionStatus;
+  scheduledDate: Date;
+  windowStart: Date;
+  windowEnd: Date;
 }
 
-export function isValidTransition(from: InterventionStatus, action: TransitionActionType): boolean {
-  const transition = getStateTransition(from, action);
-  return transition !== null;
+export interface TransitionParams {
+  reason?: string;
+  newScheduledDate?: Date;
+  newWindowStart?: Date;
+  newWindowEnd?: Date;
+  now?: Date;
 }
 
-export function getAllowedTransitions(status: InterventionStatus): StateTransition[] {
-  return VALID_TRANSITIONS.filter((t) => t.from === status);
+export interface TransitionPatch {
+  status: InterventionStatus;
+  scheduledDate?: Date;
+  windowStart?: Date;
+  windowEnd?: Date;
+  cancelledReason?: string;
+  completedAt?: Date;
+  /** Reschedule / stop_route / cancel clear any reported delay. */
+  delayMinutes?: null;
+  delayReason?: null;
 }
 
-export function transitionIntervention(
-  intervention: Intervention,
+export interface TransitionEvent {
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+export type TransitionResult =
+  | { ok: true; from: InterventionStatus; to: InterventionStatus; patch: TransitionPatch; event: TransitionEvent }
+  | { ok: false; error: 'INVALID_TRANSITION' | 'INVALID_PARAMS'; message: string };
+
+export function getTransition(from: InterventionStatus, action: TransitionActionType): StateTransition | undefined {
+  return VALID_TRANSITIONS.find((t) => t.from === from && t.action === action);
+}
+
+export function allowedActions(status: InterventionStatus): TransitionActionType[] {
+  return VALID_TRANSITIONS.filter((t) => t.from === status).map((t) => t.action);
+}
+
+/**
+ * Pure transition function: no I/O, no clock unless `params.now` is omitted.
+ * Returns the DB patch and the timeline event; callers persist both atomically.
+ */
+export function transition(
+  intervention: TransitionInput,
   action: TransitionActionType,
   actorId: string,
-): { intervention: Intervention; event: { type: string; payload: any } } {
-  const fromStatus = intervention.status;
-  const transition = getStateTransition(fromStatus, action);
-
-  if (!transition) {
-    throw new ForbiddenException(`Cannot transition from ${fromStatus} with action ${action}`);
-  }
-
-  const toStatus = transition.to;
-
-  const updatedIntervention: Intervention = {
-    ...intervention,
-    status: toStatus,
-    updatedAt: new Date(),
-  };
-
-  const event = {
-    type: `intervention.${toStatus.toLowerCase()}`,
-    payload: {
-      interventionId: intervention.id,
-      actorId,
-      fromStatus,
-      toStatus,
-      action,
-    },
-  };
-
-  return { intervention: updatedIntervention, event };
-}
-
-export class InterventionStateMachine {
-  private readonly transitions: Map<InterventionStatus, Set<InterventionStatus>> = new Map();
-
-  constructor() {
-    VALID_TRANSITIONS.forEach((t) => {
-      if (!this.transitions.has(t.from)) {
-        this.transitions.set(t.from, new Set());
-      }
-      this.transitions.get(t.from)!.add(t.to);
-    });
-  }
-
-  getValidTransitions(status: InterventionStatus): InterventionStatus[] {
-    return Array.from(this.transitions.get(status) || []);
-  }
-
-  canTransition(from: InterventionStatus, to: InterventionStatus): boolean {
-    return this.transitions.get(from)?.has(to) || false;
-  }
-
-  validateTransition(intervention: Intervention, action: TransitionActionType): void {
-    const fromStatus = intervention.status;
-    const transition = getStateTransition(fromStatus, action);
-
-    if (!transition) {
-      const allowed = this.getValidTransitions(fromStatus);
-      throw new ForbiddenException(
-        `Invalid transition from ${fromStatus} with action ${action}. Allowed: ${allowed.join(', ')}`,
-      );
-    }
-  }
-
-  async applyTransition(
-    intervention: Intervention,
-    action: TransitionActionType,
-    actorId: string,
-    reason?: string,
-    newScheduledDate?: string,
-    newWindowStart?: string,
-    newWindowEnd?: string,
-  ): Promise<{ intervention: Intervention; event: any }> {
-    this.validateTransition(intervention, action);
-
-    const fromStatus = intervention.status;
-    const toStatus = this.getValidTransitions(fromStatus).find((s) => {
-      const t = VALID_TRANSITIONS.find((tr) => tr.from === fromStatus && tr.to === s && tr.action === action);
-      return t !== undefined;
-    });
-
-    if (!toStatus) {
-      throw new NotFoundException(`Cannot find valid transition for action ${action}`);
-    }
-
-    const updatedIntervention: Intervention = {
-      ...intervention,
-      status: toStatus,
-      updatedAt: new Date(),
+  params: TransitionParams = {},
+): TransitionResult {
+  const t = getTransition(intervention.status, action);
+  if (!t) {
+    return {
+      ok: false,
+      error: 'INVALID_TRANSITION',
+      message: `Cannot ${action} an intervention that is ${intervention.status}`,
     };
-
-    if (action === 'cancel' && reason) {
-      updatedIntervention.cancelledReason = reason;
-    }
-
-    if (action === 'reschedule' && (newScheduledDate || newWindowStart || newWindowEnd)) {
-      if (newScheduledDate) {
-        updatedIntervention.scheduledDate = new Date(newScheduledDate);
-      }
-      if (newWindowStart) {
-        updatedIntervention.windowStart = new Date(newWindowStart);
-      }
-      if (newWindowEnd) {
-        updatedIntervention.windowEnd = new Date(newWindowEnd);
-      }
-    }
-
-    const event = {
-      type: `intervention.${toStatus.toLowerCase()}`,
-      payload: {
-        interventionId: intervention.id,
-        actorId,
-        fromStatus,
-        toStatus,
-        action,
-        reason,
-        newScheduledDate,
-        newWindowStart,
-        newWindowEnd,
-      },
-    };
-
-    return { intervention: updatedIntervention, event };
   }
-}
 
-export function resolveConflict(intervention: Intervention, action: TransitionActionType): boolean {
-  const fromStatus = intervention.status;
-  const denyList: Record<string, TransitionActionType[]> = {
-    COMPLETED: ['en_route', 'stop_route', 'arrived', 'reschedule', 'cancel'],
-    CANCELLED: ['en_route', 'stop_route', 'arrived', 'complete', 'reschedule', 'cancel'],
+  const patch: TransitionPatch = { status: t.to };
+  const payload: Record<string, unknown> = { actorId, action, fromStatus: t.from, toStatus: t.to };
+
+  if (action === 'cancel') {
+    if (!params.reason?.trim()) {
+      return { ok: false, error: 'INVALID_PARAMS', message: 'A reason is required to cancel' };
+    }
+    patch.cancelledReason = params.reason.trim();
+    patch.delayMinutes = null;
+    patch.delayReason = null;
+    payload.reason = patch.cancelledReason;
+  }
+
+  if (action === 'complete') {
+    patch.completedAt = params.now ?? new Date();
+  }
+
+  if (action === 'stop_route') {
+    patch.delayMinutes = null;
+    patch.delayReason = null;
+  }
+
+  if (action === 'reschedule') {
+    const { newScheduledDate, newWindowStart, newWindowEnd } = params;
+    if (!newScheduledDate || !newWindowStart || !newWindowEnd) {
+      return { ok: false, error: 'INVALID_PARAMS', message: 'Reschedule needs a new date and window' };
+    }
+    if (!(newWindowStart.getTime() < newWindowEnd.getTime())) {
+      return { ok: false, error: 'INVALID_PARAMS', message: 'Window start must be before window end' };
+    }
+    patch.scheduledDate = newScheduledDate;
+    patch.windowStart = newWindowStart;
+    patch.windowEnd = newWindowEnd;
+    patch.delayMinutes = null;
+    patch.delayReason = null;
+    payload.newScheduledDate = newScheduledDate.toISOString();
+    payload.newWindowStart = newWindowStart.toISOString();
+    payload.newWindowEnd = newWindowEnd.toISOString();
+    if (params.reason) payload.reason = params.reason;
+  }
+
+  return {
+    ok: true,
+    from: t.from,
+    to: t.to,
+    patch,
+    event: { type: EVENT_TYPES[action], payload },
   };
-
-  if (denyList[fromStatus] && denyList[fromStatus].includes(action)) {
-    throw new ConflictException(`Cannot perform ${action} on intervention with status ${fromStatus}`);
-  }
-
-  const transition = getStateTransition(fromStatus, action);
-  if (!transition) {
-    throw new ConflictException(`Cannot perform ${action} on intervention with status ${fromStatus}`);
-  }
-
-  return true;
-}
-
-export function canPerformAction(intervention: Intervention, action: TransitionActionType): boolean {
-  try {
-    resolveConflict(intervention, action);
-    return true;
-  } catch {
-    return false;
-  }
 }

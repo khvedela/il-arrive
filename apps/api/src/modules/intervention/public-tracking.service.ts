@@ -1,6 +1,9 @@
-import * as crypto from 'crypto';
-import { Injectable, NotFoundException, GoneException } from '@nestjs/common';
-import { InterventionRepository } from './intervention.repository';
+import { GoneException, Injectable, NotFoundException } from '@nestjs/common';
+import { InterventionForPublic, InterventionRepository } from './intervention.repository';
+import { hashToken } from './tracking-link.service';
+
+const FINAL_STATE_VISIBLE_MS = 24 * 60 * 60 * 1000;
+const STALE_FIX_MS = 120 * 1000;
 
 export interface PublicTrackingProjection {
   businessName: string;
@@ -16,143 +19,78 @@ export interface PublicTrackingProjection {
   etaComputedAt?: string;
   delayMinutes?: number;
   delayReason?: string;
-  location?: {
-    lat: number;
-    lng: number;
-    status: string;
-    lastFixAt: string;
-  };
+  /** Only while EN_ROUTE. Coordinates are omitted when the last fix is stale. */
+  location?: { lat?: number; lng?: number; status: 'FRESH' | 'STALE'; lastFixAt: string };
   contactPhone: string;
 }
 
 @Injectable()
 export class PublicTrackingService {
-  constructor(private readonly interventionRepository: InterventionRepository) {}
+  constructor(private readonly repository: InterventionRepository) {}
 
-  async getPublicTracking(token: string): Promise<PublicTrackingProjection | null> {
-    const trackingLink = await this.interventionRepository.findTrackingLinkByTokenHash(
-      this.hashToken(token),
-    );
+  /**
+   * Resolves a raw token to the customer-safe projection.
+   * Unknown/revoked token -> NotFound; past hard expiry or past the 24 h final-state window -> Gone.
+   */
+  async getPublicTracking(token: string, now = new Date()): Promise<PublicTrackingProjection> {
+    const link = await this.repository.findActiveLinkByHash(hashToken(token));
+    if (!link) throw new NotFoundException();
 
-    if (!trackingLink) {
-      return null;
-    }
+    if (link.expiresAt.getTime() < now.getTime()) throw new GoneException('Ce lien a expiré');
 
-    const intervention = await this.interventionRepository.findById(
-      trackingLink.interventionId,
-      businessId,
-    );
+    const intervention = await this.repository.findForPublic(link.interventionId);
+    if (!intervention) throw new NotFoundException();
 
-    if (!intervention) {
-      return null;
-    }
+    if (this.isPastFinalStateWindow(intervention, now)) throw new GoneException('Ce lien a expiré');
 
-    if (this.is_expired(intervention)) {
-      if (this.should_show_final_state(intervention)) {
-        return this.buildPublicProjection(intervention);
-      }
-      throw new GoneException('Tracking link has expired');
-    }
-
-    return this.buildPublicProjection(intervention);
+    return this.project(intervention, now);
   }
 
-  async getPublicTrackingTimeline(token: string): Promise<any[]> {
-    const trackingLink = await this.interventionRepository.findTrackingLinkByTokenHash(
-      this.hashToken(token),
-    );
+  private isPastFinalStateWindow(i: InterventionForPublic, now: Date): boolean {
+    if (i.status !== 'COMPLETED' && i.status !== 'CANCELLED') return false;
+    const endedAt = i.status === 'COMPLETED' ? (i.completedAt ?? i.updatedAt) : i.updatedAt;
+    return now.getTime() > endedAt.getTime() + FINAL_STATE_VISIBLE_MS;
+  }
 
-    if (!trackingLink) {
-      throw new NotFoundException('Tracking link not found');
-    }
-
-    const intervention = await this.interventionRepository.findById(
-      trackingLink.interventionId,
-      businessId,
-    );
-
-    if (!intervention) {
-      throw new NotFoundException('Intervention not found');
-    }
-
-    if (this.is_expired(intervention)) {
-      throw new NotFoundException('Tracking link has expired');
-    }
-
-    const timeline = await this.interventionRepository.findInterventionEvent(
-      intervention.id,
-      intervention.businessId,
-    );
-
-    return timeline.map((event) => ({
-      id: event.id,
-      type: event.type,
-      createdAt: event.createdAt,
-      payload: typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload,
-      }));
-    }
-
-    private buildPublicProjection(intervention: any): PublicTrackingProjection {
+  private project(i: InterventionForPublic, now: Date): PublicTrackingProjection {
+    const active = i.trackingSessions.find((s) => s.endedAt === null);
+    const session = active ?? null;
     const projection: PublicTrackingProjection = {
-      businessName: intervention.business?.name || '',
-      businessLogoUrl: intervention.business?.logoUrl,
-      businessPhone: intervention.business?.phone || '',
-      technicianFirstName: intervention.technicianMember?.user?.firstName || '',
-      technicianAvatarUrl: intervention.technicianMember?.user?.avatarUrl,
-      status: intervention.status,
-      windowStart: intervention.windowStart.toISOString(),
-      windowEnd: intervention.windowEnd.toISOString(),
-      addressLabel: intervention.addressLabel,
-      contactPhone: intervention.customer?.phone || '',
+      businessName: i.business.name,
+      businessLogoUrl: i.business.logoUrl ?? undefined,
+      businessPhone: i.business.phone,
+      technicianFirstName: i.technician?.user.firstName ?? '',
+      technicianAvatarUrl: i.technician?.user.avatarUrl ?? undefined,
+      status: i.status,
+      windowStart: i.windowStart.toISOString(),
+      windowEnd: i.windowEnd.toISOString(),
+      addressLabel: i.addressLabel,
+      contactPhone: i.business.phone,
     };
 
-    if (intervention.delayMinutes) {
-      projection.delayMinutes = intervention.delayMinutes;
-      projection.delayReason = intervention.delayReason;
+    if ((i.status === 'SCHEDULED' || i.status === 'EN_ROUTE') && i.delayMinutes) {
+      projection.delayMinutes = i.delayMinutes;
+      projection.delayReason = i.delayReason ?? undefined;
     }
 
-    if (intervention.etaComputedAt) {
-      projection.eta = intervention.etaComputedAt.toISOString();
-      projection.etaComputedAt = intervention.etaComputedAt.toISOString();
-    }
+    if (i.status === 'EN_ROUTE' && session) {
+      if (session.etaAt) projection.eta = session.etaAt.toISOString();
+      if (session.etaComputedAt) projection.etaComputedAt = session.etaComputedAt.toISOString();
 
-    if (
-      intervention.status === 'EN_ROUTE' &&
-      intervention.locationLat &&
-      intervention.locationLng
-    ) {
-      const now = new Date();
-      const lastFixAt = intervention.locationLastFixAt || intervention.updatedAt;
-      const isStale = this.is_location_stale(lastFixAt);
-
-      projection.location = {
-        lat: Number(intervention.locationLat.toFixed(4)),
-        lng: Number(intervention.locationLng.toFixed(4)),
-        status: isStale ? 'STALE' : 'FRESH',
-        lastFixAt: lastFixAt.toISOString(),
-      };
+      if (session.lastFixAt) {
+        const fresh = now.getTime() - session.lastFixAt.getTime() <= STALE_FIX_MS;
+        projection.location =
+          fresh && session.lastLat !== null && session.lastLng !== null
+            ? {
+                lat: Number(session.lastLat.toFixed(4)),
+                lng: Number(session.lastLng.toFixed(4)),
+                status: 'FRESH',
+                lastFixAt: session.lastFixAt.toISOString(),
+              }
+            : { status: 'STALE', lastFixAt: session.lastFixAt.toISOString() };
+      }
     }
 
     return projection;
-  }
-
-  private is_location_stale(lastFixAt: Date): boolean {
-    const now = new Date();
-    const diffMinutes = (now.getTime() - lastFixAt.getTime()) / (1000 * 60);
-    return diffMinutes > 120;
-  }
-
-  private is_expired(intervention: any): boolean {
-    const windowEnd = new Date(intervention.windowEnd);
-    const now = new Date();
-    const expiryOffset = intervention.status === 'COMPLETED' || intervention.status === 'CANCELLED' ? 48 : 41;
-    return now.getTime() > new Date(windowEnd.getTime() + expiryOffset * 60 * 60 * 1000).getTime();
-  }
-
-  private should_show_final_state(intervention: any): boolean {
-    const now = new Date();
-    const completeDate = intervention.completedAt || new Date(intervention.windowEnd);
-    const finalStateWindow = new Date(completeDate.getTime() + 24 * 60 * 60 * 1000);
-    return now.getTime() < finalStateWindow.getTime();
   }
 }
