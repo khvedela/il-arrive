@@ -2,12 +2,29 @@ import { test, expect } from '@playwright/test';
 
 test.use({ permissions: ['geolocation'], geolocation: { latitude: 48.8566, longitude: 2.3522, accuracy: 20 } });
 
+/** Test-only API stub (the PWA itself has no mock fallback): serves one SCHEDULED job and tracks its status. */
+async function stubTechApi(page: import('@playwright/test').Page, onLocation: () => void) {
+  let status = 'SCHEDULED';
+  const row = () => ({
+    id: 'int-002', customerId: 'c1', addressLabel: '4 av. Victor Hugo, Lyon', addressLat: 45.75, addressLng: 4.83,
+    scheduledDate: new Date().toISOString(), windowStart: new Date().toISOString(), windowEnd: new Date(Date.now() + 3600e3).toISOString(),
+    status, customer: { id: 'c1', name: 'Paul Bernard', phone: '0798765432' },
+  });
+  await page.route('**/api/tech/interventions/**', route => {
+    const url = route.request().url();
+    const m = route.request().method();
+    if (url.endsWith('/location')) { onLocation(); return route.fulfill({ status: 202, json: {} }); }
+    if (m === 'PATCH') {
+      status = url.endsWith('/en-route') ? 'EN_ROUTE' : url.endsWith('/arrived') ? 'ARRIVED' : status;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ json: { intervention: row(), timeline: [], customer: row().customer } });
+  });
+}
+
 test('en route -> fixes posted -> arrived -> no more requests', async ({ page, context }) => {
   const posts: number[] = [];
-  await page.route('**/api/tech/interventions/*/location', route => {
-    posts.push(Date.now());
-    return route.fulfill({ status: 204 });
-  });
+  await stubTechApi(page, () => posts.push(Date.now()));
 
   await page.goto('/tech/i/int-002');
   await expect(page.getByText('Je suis en route')).toBeVisible();
@@ -41,7 +58,8 @@ test('en route -> fixes posted -> arrived -> no more requests', async ({ page, c
 test('permission denied -> status-only notice', async ({ browser }) => {
   const ctx = await browser.newContext({ permissions: [] , viewport: { width: 390, height: 844 }, hasTouch: true });
   const page = await ctx.newPage();
-  await page.goto('http://localhost:4200/tech/i/int-003');
+  await stubTechApi(page, () => undefined);
+  await page.goto('http://localhost:4200/tech/i/int-002');
   await page.getByRole('button', { name: 'Je suis en route' }).click();
   await page.getByRole('button', { name: 'Partager ma position' }).click();
   await expect(page.getByText('sans la carte')).toBeVisible({ timeout: 10_000 });
