@@ -11,6 +11,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  // One trusted hop (nginx): per-client throttling must key on X-Forwarded-For, not the proxy address.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // Pino structured logger
   app.use(pinoHttp({
     genReqId: () => crypto.randomUUID(),

@@ -10,6 +10,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AccessTokenGuard } from './guards/access-token.guard';
@@ -25,6 +26,8 @@ import { RequestPasswordResetDto } from './dtos/request-password-reset.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
 import { SESSION_TTL_MS } from './create-session.service';
 import { clearedCookieHeaders, newCsrfToken, sessionCookieHeaders } from './session-cookies';
+
+export const ACCEPT_INVITATION_ATTEMPTS = 10;
 
 @ApiTags('auth')
 @Controller('auth')
@@ -53,6 +56,9 @@ export class AuthController {
     return result;
   }
 
+  // Verifies an existing user's password with a bearer-like token in hand: cap guesses per client.
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: ACCEPT_INVITATION_ATTEMPTS, ttl: 60_000 } })
   @Post('accept-invitation')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Redeem an invitation token (single-use) and sign in' })

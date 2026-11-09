@@ -5,11 +5,12 @@ import { CreateSessionService } from './create-session.service';
 import { CreateUserService } from './create-user.service';
 import { MailModule } from '../mail/mail.module';
 import { BusinessModule } from '../business/business.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { MembersModule } from '../members/members.module';
 import { SessionMiddleware } from './session.middleware';
 
 @Module({
-  imports: [MailModule, BusinessModule, MembersModule],
+  imports: [MailModule, BusinessModule, MembersModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }])],
   controllers: [AuthController],
   providers: [AuthService, CreateSessionService, CreateUserService, SessionMiddleware],
   exports: [AuthService, CreateSessionService, CreateUserService],
