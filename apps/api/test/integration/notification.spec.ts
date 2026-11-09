@@ -350,6 +350,33 @@ describe('Notifications (Postgres + Redis)', () => {
   });
 
   describe('HTTP auth isolation', () => {
+    it('session-cookie technicians only read their own share-message within the same business', async () => {
+      const a = await seed();
+      const http = () => request(app.getHttpServer());
+      const userB = await prisma.user.create({
+        data: { email: `techb-${Date.now()}@x.test`, passwordHash: 'x', firstName: 'Lea', lastName: 'E' },
+      });
+      const techB = await prisma.membership.create({
+        data: { userId: userB.id, businessId: a.business.id, role: 'TECHNICIAN', isTechnician: true },
+      });
+      const customer = await prisma.customer.findFirstOrThrow({ where: { businessId: a.business.id } });
+      const end = new Date(Date.now() + 2 * 3600_000);
+      const ivB = await prisma.intervention.create({
+        data: {
+          businessId: a.business.id, customerId: customer.id, technicianMembershipId: techB.id,
+          addressLabel: '2 rue Y', scheduledDate: end, windowStart: new Date(end.getTime() - 3600_000), windowEnd: end,
+          status: 'EN_ROUTE',
+        },
+      });
+      await prisma.trackingSession.create({ data: { interventionId: ivB.id, startedAt: new Date() } });
+      const { token } = await app.get(CreateSessionService).execute({ userId: a.user.id });
+      const cookie = `session=${token}`;
+
+      await http().get(`/interventions/${a.iv.id}/share-message`).expect(401);
+      await http().get(`/interventions/${a.iv.id}/share-message`).set('Cookie', cookie).expect(200);
+      await http().get(`/interventions/${ivB.id}/share-message`).set('Cookie', cookie).expect(404);
+    });
+
     it('accepts the browser session cookie (+CSRF on mutations) like the rest of the API', async () => {
       const a = await seed();
       const b = await seed();
