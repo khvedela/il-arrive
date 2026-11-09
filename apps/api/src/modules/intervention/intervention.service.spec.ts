@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { InterventionService } from './intervention.service';
 import { InterventionRepository } from './intervention.repository';
 import { TrackingLinkService } from './tracking-link.service';
+import { TrackingSessionService } from '../tracking/tracking-session.service';
 
 const BUSINESS = 'b1';
 const base = {
@@ -25,7 +26,10 @@ function build(memberships: Record<string, string>) {
     })),
     extendLinks: jest.fn(),
   };
-  const service = new InterventionService(repo as unknown as InterventionRepository, {} as TrackingLinkService);
+  const service = new InterventionService(repo as unknown as InterventionRepository, {} as TrackingLinkService, {
+    onSessionStarted: jest.fn(),
+    onSessionEnded: jest.fn(),
+  } as unknown as TrackingSessionService);
   return { service, repo };
 }
 

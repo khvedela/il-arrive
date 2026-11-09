@@ -46,9 +46,9 @@ export interface PositionRounder {
 }
 
 export interface ETAStalenessPolicy {
-  shouldRecompute(lastComputedAt: Date | null, lastFixAt: Date | null, lastLat: number | null, lastLng: number | null, currentLat: number, currentLng: number): boolean;
-  validateFix(lat: number, lng: number, accuracy: number, timestamp: Date): FixValidationResult;
-  getStatus(etaAt: Date | null, computedAt: Date | null, lastFixAt: Date | null): ETAStatus;
+  shouldRecompute(lastComputedAt: Date | null, lastFixAt: Date | null, lastLat: number | null, lastLng: number | null, currentLat: number, currentLng: number, now?: Date): boolean;
+  validateFix(lat: number, lng: number, accuracy: number, timestamp: Date, now?: Date): FixValidationResult;
+  getStatus(etaAt: Date | null, computedAt: Date | null, lastFixAt: Date | null, now?: Date): ETAStatus;
   roundPosition(lat: number, lng: number): { lat: number; lng: number };
   checkSessionExpiry(startedAt: Date, lastFixAt: Date | null, now: Date): SessionExpiry;
 }

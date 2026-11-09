@@ -20,6 +20,7 @@ import {
   TransitionParams,
   transition,
 } from './intervention.state-machine';
+import { TrackingSessionService } from '../tracking/tracking-session.service';
 import { IssuedTrackingLink, TrackingLinkService, linkExpiry } from './tracking-link.service';
 
 export interface InterventionWithTimeline {
@@ -46,6 +47,7 @@ export class InterventionService {
   constructor(
     private readonly repository: InterventionRepository,
     private readonly trackingLinks: TrackingLinkService,
+    private readonly trackingSessions: TrackingSessionService,
   ) {}
 
   // --- dispatcher / owner ---
@@ -268,6 +270,10 @@ export class InterventionService {
       payload: JSON.parse(JSON.stringify(result.event.payload)),
     });
     if (!updated) throw new ConflictException('Intervention was modified concurrently, please retry');
+
+    // The DB side of the session lifecycle ran in the transition transaction; this is the rest.
+    if (result.to === 'EN_ROUTE') await this.trackingSessions.onSessionStarted(interventionId);
+    else await this.trackingSessions.onSessionEnded(interventionId, action);
 
     if (action === 'reschedule' && result.patch.windowEnd) {
       await this.repository.extendLinks(interventionId, linkExpiry(result.patch.windowEnd));

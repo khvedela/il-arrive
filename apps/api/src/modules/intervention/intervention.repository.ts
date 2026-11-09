@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Intervention, InterventionEvent, InterventionStatus, Prisma, TrackingLink } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
+import { POSITION_RESET } from '../tracking/tracking.keys';
 import type { TransitionPatch } from './intervention.state-machine';
 
 export interface ListFilters {
@@ -104,11 +105,19 @@ export class InterventionRepository {
       await tx.interventionEvent.create({
         data: { interventionId, type: event.type, actorUserId: event.actorUserId, payload: event.payload },
       });
-      if (patch.status !== 'EN_ROUTE') {
+      if (patch.status === 'EN_ROUTE') {
+        // One row per intervention (unique): a new en_route after stop_route reopens it from scratch.
+        const fresh = { startedAt: new Date(), endedAt: null, ...POSITION_RESET, etaAt: null, etaComputedAt: null, etaSource: null };
+        await tx.trackingSession.upsert({
+          where: { interventionId },
+          create: { interventionId, startedAt: fresh.startedAt },
+          update: fresh,
+        });
+      } else {
         // ARRIVED, COMPLETED, CANCELLED, stop_route and reschedule all end the location session.
         await tx.trackingSession.updateMany({
           where: { interventionId, endedAt: null },
-          data: { endedAt: new Date(), lastLat: null, lastLng: null, lastAccuracy: null },
+          data: { endedAt: new Date(), ...POSITION_RESET },
         });
       }
       return tx.intervention.findFirst({ where: { id: interventionId, businessId } });

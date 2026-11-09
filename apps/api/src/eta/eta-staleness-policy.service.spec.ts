@@ -66,47 +66,36 @@ describe('ETAStalenessPolicyService', () => {
     });
   });
 
-  describe('shouldRecompute', () => {
-    it('should recompute on first call', () => {
-      const should = policy.shouldRecompute(null, null, null, null, 48.8566, 2.3522);
+  describe('shouldRecompute (fake clock)', () => {
+    const now = new Date('2026-01-01T10:00:00Z');
+    const ago = (s: number) => new Date(now.getTime() - s * 1000);
+    const P = { lat: 48.8566, lng: 2.3522 };
+    const FAR = { lat: 48.87, lng: 2.37 }; // ~2 km
+    const NEAR = { lat: 48.8567, lng: 2.3523 }; // ~13 m
 
-      expect(should).toBe(true);
+    it('recomputes on first call', () => {
+      expect(policy.shouldRecompute(null, null, null, null, P.lat, P.lng, now)).toBe(true);
     });
 
-    it('should recompute after 61 seconds and > 500m movement', () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 61000);
-
-      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8700, 2.3700);
-
-      expect(should).toBe(true);
+    it('never recomputes within 60 s, even after a large move (1 call/min cap)', () => {
+      expect(policy.shouldRecompute(ago(59), ago(59), P.lat, P.lng, FAR.lat, FAR.lng, now)).toBe(false);
     });
 
-    it('should not recompute within 60 seconds', () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 60000);
-
-      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8566, 2.3522);
-
-      expect(should).toBe(false);
+    it('recomputes at exactly 60 s when moved > 500 m', () => {
+      expect(policy.shouldRecompute(ago(60), ago(60), P.lat, P.lng, FAR.lat, FAR.lng, now)).toBe(true);
     });
 
-    it('should recompute after moving 500+ meters', () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 120000);
-
-      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8700, 2.3700);
-
-      expect(should).toBe(true);
+    it('does not recompute after >= 60 s when barely moved and the ETA is younger than 3 min', () => {
+      expect(policy.shouldRecompute(ago(120), ago(120), P.lat, P.lng, NEAR.lat, NEAR.lng, now)).toBe(false);
+      expect(policy.shouldRecompute(ago(180), ago(180), P.lat, P.lng, NEAR.lat, NEAR.lng, now)).toBe(false);
     });
 
-    it('should not recompute after small movement', () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 120000);
+    it('recomputes without moving once the ETA is older than 3 min', () => {
+      expect(policy.shouldRecompute(ago(181), ago(181), P.lat, P.lng, NEAR.lat, NEAR.lng, now)).toBe(true);
+    });
 
-      const should = policy.shouldRecompute(past, past, 48.8566, 2.3522, 48.8567, 2.3523);
-
-      expect(should).toBe(false);
+    it('treats a 0 coordinate as a real coordinate, not as missing', () => {
+      expect(policy.shouldRecompute(ago(120), ago(120), 0, 0, 0, 0.0001, now)).toBe(false);
     });
   });
 

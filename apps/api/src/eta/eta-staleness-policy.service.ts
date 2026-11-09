@@ -5,6 +5,7 @@ import { ETAStalenessPolicy, FixValidationResult, ETAStatus, SessionExpiry } fro
 export class ETAStalenessPolicyService implements ETAStalenessPolicy {
   private readonly RECOMPUTE_INTERVAL_S = 60;
   private readonly RECOMPUTE_DISTANCE_M = 500;
+  private readonly ETA_MAX_AGE_S = 180;
   private readonly STALENESS_THRESHOLD_S = 120;
   private readonly SESSION_DURATION_H = 3;
   private readonly MAX_ACCURACY_M = 200;
@@ -21,8 +22,16 @@ export class ETAStalenessPolicyService implements ETAStalenessPolicy {
     return this.round(lat, lng);
   }
 
-  validateFix(lat: number, lng: number, accuracy: number, timestamp: Date): FixValidationResult {
-    const now = new Date();
+  validateFix(lat: number, lng: number, accuracy: number, timestamp: Date, now: Date = new Date()): FixValidationResult {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return { valid: false, reason: 'Invalid coordinates' };
+    }
+    if (!Number.isFinite(accuracy) || accuracy < 0) {
+      return { valid: false, reason: 'Invalid accuracy' };
+    }
+    if (Number.isNaN(timestamp.getTime())) {
+      return { valid: false, reason: 'Invalid timestamp' };
+    }
 
     if (accuracy > this.MAX_ACCURACY_M) {
       return { valid: false, reason: `Accuracy too low: ${accuracy}m (max ${this.MAX_ACCURACY_M}m)` };
@@ -42,32 +51,33 @@ export class ETAStalenessPolicyService implements ETAStalenessPolicy {
     return { valid: true };
   }
 
-  shouldRecompute(lastComputedAt: Date | null, lastFixAt: Date | null, lastLat: number | null, lastLng: number | null, currentLat: number, currentLng: number): boolean {
-    const now = new Date();
-
+  /**
+   * ARCHITECTURE §5: recompute when >= 60 s since the last compute AND (moved > 500 m since the
+   * position used for that compute OR the ETA is older than 3 min). The 60 s floor is also the
+   * hard 1 call/min/session cap. `lastLat/lastLng` are the coordinates of the last compute.
+   */
+  shouldRecompute(lastComputedAt: Date | null, _lastFixAt: Date | null, lastLat: number | null, lastLng: number | null, currentLat: number, currentLng: number, now: Date = new Date()): boolean {
     if (!lastComputedAt) {
       return true;
     }
 
     const ageS = (now.getTime() - lastComputedAt.getTime()) / 1000;
-    if (ageS <= this.RECOMPUTE_INTERVAL_S) {
+    if (ageS < this.RECOMPUTE_INTERVAL_S) {
       return false;
     }
 
-    if (!lastLat || !lastLng || !currentLat || !currentLng) {
+    if (ageS > this.ETA_MAX_AGE_S) {
       return true;
     }
 
-    const distanceM = this.haversineDistance(lastLat, lastLng, currentLat, currentLng);
-    if (distanceM > this.RECOMPUTE_DISTANCE_M) {
+    if (lastLat === null || lastLng === null) {
       return true;
     }
 
-    return false;
+    return this.haversineDistance(lastLat, lastLng, currentLat, currentLng) > this.RECOMPUTE_DISTANCE_M;
   }
 
-  getStatus(etaAt: Date | null, computedAt: Date | null, lastFixAt: Date | null): ETAStatus {
-    const now = new Date();
+  getStatus(etaAt: Date | null, computedAt: Date | null, lastFixAt: Date | null, now: Date = new Date()): ETAStatus {
 
     if (!lastFixAt) {
       return {
