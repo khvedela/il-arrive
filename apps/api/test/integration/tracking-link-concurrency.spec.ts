@@ -49,4 +49,29 @@ describe('tracking link rotation under concurrency (PostgreSQL)', () => {
       prisma.trackingLink.create({ data: { interventionId, tokenHash: 'dup-1', expiresAt: new Date() } }),
     ).rejects.toBeDefined();
   });
+
+  it('rotates an existing link: old hash revoked, new hash active, exactly one active', async () => {
+    const expiresAt = new Date(Date.now() + 3600e3);
+    await repo.replaceLink(interventionId, hashToken('old'), expiresAt);
+    await repo.replaceLink(interventionId, hashToken('new'), expiresAt);
+    expect(await repo.findActiveLinkByHash(hashToken('old'))).toBeNull();
+    expect(await repo.findActiveLinkByHash(hashToken('new'))).not.toBeNull();
+    expect(await prisma.trackingLink.count({ where: { interventionId, revokedAt: null } })).toBe(1);
+  });
+
+  it('overlapping revoke and rotate are totally ordered: never more than one active, and the returned token matches the final state', async () => {
+    const expiresAt = new Date(Date.now() + 3600e3);
+    for (let round = 0; round < 10; round++) {
+      const hash = hashToken(`race-${round}`);
+      const [, , link] = await Promise.all([
+        repo.revokeLinks(interventionId, businessId),
+        repo.revokeLinks(interventionId, businessId),
+        repo.replaceLink(interventionId, hash, expiresAt),
+      ]);
+      const active = await prisma.trackingLink.findMany({ where: { interventionId, revokedAt: null } });
+      expect(active.length).toBeLessThanOrEqual(1);
+      // Revoke ran after rotate -> 0 active (the issued URL is dead); before -> the issued token is the active one.
+      if (active.length === 1) expect(active[0].id).toBe(link.id);
+    }
+  });
 });

@@ -174,12 +174,16 @@ export class InterventionRepository {
     });
   }
 
+  /** Takes the same per-intervention lock as replaceLink, so revoke and rotate are totally ordered. */
   async revokeLinks(interventionId: string, businessId: string): Promise<number> {
-    const { count } = await this.prisma.trackingLink.updateMany({
-      where: { interventionId, intervention: { businessId }, revokedAt: null },
-      data: { revokedAt: new Date() },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${interventionId}))`;
+      const { count } = await tx.trackingLink.updateMany({
+        where: { interventionId, intervention: { businessId }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return count;
     });
-    return count;
   }
 
   async extendLinks(interventionId: string, expiresAt: Date): Promise<void> {

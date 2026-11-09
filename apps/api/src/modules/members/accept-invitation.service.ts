@@ -35,41 +35,46 @@ export class AcceptInvitationService {
       throw new Error('Invitation has expired');
     }
 
-    const hashedPassword = await argon2.hash(password);
-
-    let user = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.user.findUnique({
       where: { email: invitation.email },
     });
+    if (existingUser && !(await argon2.verify(existingUser.passwordHash, password))) {
+      throw new Error('Invalid password');
+    }
+    const hashedPassword = existingUser ? undefined : await argon2.hash(password);
 
-    if (!user) {
-      user = await this.prisma.user.create({
+    // Claim + grant in one transaction: the conditional claim makes redemption single-use under
+    // concurrency, and any failure rolls back the user, membership and claim together.
+    const user = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.invitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null, expiresAt: { gt: new Date() } },
+        data: { acceptedAt: new Date() },
+      });
+      if (claim.count !== 1) {
+        throw new Error('Invitation already accepted or expired');
+      }
+
+      const member =
+        existingUser ??
+        (await tx.user.create({
+          data: {
+            email: invitation.email,
+            passwordHash: hashedPassword as string,
+            firstName,
+            lastName,
+            phone: phone || undefined,
+          },
+        }));
+
+      await tx.membership.create({
         data: {
-          email: invitation.email,
-          passwordHash: hashedPassword,
-          firstName,
-          lastName,
-          phone: phone || undefined,
+          userId: member.id,
+          businessId: invitation.businessId,
+          role: invitation.role,
+          isTechnician: invitation.role === 'TECHNICIAN',
         },
       });
-    } else {
-      const passwordValid = await argon2.verify(user.passwordHash, password);
-      if (!passwordValid) {
-        throw new Error('Invalid password');
-      }
-    }
-
-    await this.prisma.membership.create({
-      data: {
-        userId: user.id,
-        businessId: invitation.businessId,
-        role: invitation.role,
-        isTechnician: invitation.role === 'TECHNICIAN',
-      },
-    });
-
-    await this.prisma.invitation.update({
-      where: { id: invitation.id },
-      data: { acceptedAt: new Date() },
+      return member;
     });
 
     await this.auditLog.create({

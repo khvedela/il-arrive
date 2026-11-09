@@ -41,13 +41,31 @@ function fakePrisma() {
       findFirst: async () => null,
       findUnique: async ({ where }: Row) => db.invitations.find((i) => i.tokenHash === where.tokenHash) ?? null,
       update: async ({ where, data }: Row) => Object.assign(db.invitations.find((i) => i.id === where.id)!, data),
+      updateMany: async ({ where, data }: Row) => {
+        const rows = db.invitations.filter(
+          (i) => i.id === where.id && i.acceptedAt === null && i.expiresAt > where.expiresAt.gt,
+        );
+        rows.forEach((r) => Object.assign(r, data));
+        return { count: rows.length };
+      },
     },
     membership: {
       findUnique: async () => db.memberships[0],
       findFirst: async () => null,
       create: async ({ data }: Row) => db.memberships.push({ id: 'mx', ...data }),
     },
-    $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+    $transaction: async (arg: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+      if (Array.isArray(arg)) return Promise.all(arg);
+      // interactive transaction: snapshot, roll back on throw
+      const snapshot = JSON.stringify(db, (_k, v) => v);
+      const restore = JSON.parse(snapshot, (k, v) => (k.endsWith('At') && typeof v === 'string' ? new Date(v) : v));
+      try {
+        return await arg(prisma);
+      } catch (e) {
+        (Object.keys(db) as (keyof typeof db)[]).forEach((k) => db[k].splice(0, db[k].length, ...restore[k]));
+        throw e;
+      }
+    },
   };
   return prisma;
 }
@@ -121,5 +139,44 @@ describe('invitation token redemption', () => {
     prisma.db.invitations[0].expiresAt = new Date(Date.now() - 1000);
     await expect(accept.execute(args)).rejects.toThrow('expired');
     await expect(accept.execute({ ...args, token: 'bogus' })).rejects.toThrow('Invalid');
+  });
+
+  async function invited() {
+    const prisma = fakePrisma();
+    const sent: Row[] = [];
+    const audit = { create: async () => undefined };
+    await new InviteMemberService(prisma, { send: async (m: Row) => sent.push(m) } as never, audit as never).execute({
+      businessId: 'b1',
+      inviterUserId: 'u1',
+      email: 'new@x.fr',
+      role: 'DISPATCHER',
+    });
+    const token = (JSON.stringify(sent[0]).match(/[A-Za-z0-9_-]{43}/g) ?? []).find(
+      (t) => digestToken(t) === prisma.db.invitations[0].tokenHash,
+    )!;
+    return { prisma, accept: new AcceptInvitationService(prisma, audit as never), token };
+  }
+  const args = (token: string) => ({ token, password: 'password-12345', firstName: 'N', lastName: 'M' });
+
+  it('rolls back user, membership and claim together when a write fails', async () => {
+    const { prisma, accept, token } = await invited();
+    const original = prisma.membership.create;
+    prisma.membership.create = async () => {
+      throw new Error('boom');
+    };
+    await expect(accept.execute(args(token))).rejects.toThrow('boom');
+    expect(prisma.db.invitations[0].acceptedAt).toBeNull();
+    expect(prisma.db.users).toHaveLength(1);
+    expect(prisma.db.memberships).toHaveLength(1);
+
+    prisma.membership.create = original; // retry after the fault succeeds exactly once
+    await expect(accept.execute(args(token))).resolves.toMatchObject({ role: 'DISPATCHER' });
+  });
+
+  it('concurrent redemption of one token grants exactly one membership', async () => {
+    const { prisma, accept, token } = await invited();
+    const results = await Promise.allSettled([accept.execute(args(token)), accept.execute(args(token))]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(prisma.db.memberships.filter((m: Row) => m.businessId === 'b1' && m.role === 'DISPATCHER')).toHaveLength(1);
   });
 });
