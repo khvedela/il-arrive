@@ -291,6 +291,9 @@ describe('Notifications (Postgres + Redis)', () => {
   it('persists retry diagnostics while a later business progresses beyond a poison batch', async () => {
     const bad = await seed();
     const good = await seed({ status: 'SCHEDULED' });
+    await prisma.business.update({
+      where: { id: good.business.id }, data: { notificationPrefs: { CONFIRMATION: true } },
+    });
     const subscriber = app.get(NotificationEventSubscriber);
     await subscriber.onModuleDestroy();
     const ids = Array.from({ length: 105 }, (_, i) => `poison-${bad.iv.id}-${i}`);
