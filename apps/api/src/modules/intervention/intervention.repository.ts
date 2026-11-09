@@ -27,6 +27,12 @@ const PUBLIC_INCLUDE = {
   trackingSessions: true,
 } satisfies Prisma.InterventionInclude;
 
+/** Dashboard rows show who/where without a second round-trip. */
+const LIST_INCLUDE = {
+  customer: { select: { id: true, name: true, phone: true } },
+  technician: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+} satisfies Prisma.InterventionInclude;
+
 export type InterventionForPublic = Prisma.InterventionGetPayload<{ include: typeof PUBLIC_INCLUDE }>;
 
 @Injectable()
@@ -48,6 +54,7 @@ export class InterventionRepository {
           scheduledDate: { ...(dateFrom && { gte: dateFrom }), ...(dateTo && { lte: dateTo }) },
         }),
       },
+      include: LIST_INCLUDE,
       skip,
       take: Math.min(take, 200),
       orderBy: { scheduledDate: 'asc' },
@@ -78,6 +85,7 @@ export class InterventionRepository {
 
     const rows = await this.prisma.intervention.findMany({
       where: { businessId, scheduledDate: { gte: start, lt: end } },
+      include: LIST_INCLUDE,
       orderBy: { windowStart: 'asc' },
     });
     const statuses: InterventionStatus[] = ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'];

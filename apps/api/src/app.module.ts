@@ -9,6 +9,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BusinessModule } from './modules/business/business.module';
 import { MembersModule } from './modules/members/members.module';
+import { CustomerModule } from './modules/customer/customer.module';
 import { InterventionModule } from './modules/intervention/intervention.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -44,6 +45,7 @@ import { ETAModule } from './eta/eta.module';
     AuthModule,
     BusinessModule,
     MembersModule,
+    CustomerModule,
     InterventionModule,
     TrackingModule,
     NotificationModule,

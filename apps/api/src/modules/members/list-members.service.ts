@@ -40,6 +40,7 @@ export class ListMembersService {
     });
 
     return members.map((m: MembershipWithUser) => ({
+      membershipId: m.id,
       userId: m.userId,
       email: m.user.email,
       firstName: m.user.firstName,
