@@ -18,6 +18,15 @@ fi
 # Dependencies: pnpm uses a shared content-addressable store, so this is fast
 # and does not duplicate package contents on disk.
 if command -v pnpm >/dev/null 2>&1; then
-  pnpm install --prefer-offline --frozen-lockfile 2>&1 | tail -n 5 || pnpm install --prefer-offline 2>&1 | tail -n 5
+  # Never let a dependency hiccup block the task: the agent can fix installs inside the run.
+  if ! pnpm install --prefer-offline --frozen-lockfile >/tmp/provision-$$.log 2>&1 \
+     && ! pnpm install --prefer-offline >>/tmp/provision-$$.log 2>&1 \
+     && ! pnpm install --prefer-offline --ignore-scripts >>/tmp/provision-$$.log 2>&1; then
+    echo "WARNING: pnpm install failed in worktree; agent must run 'pnpm install' and fix it first:" >&2
+    tail -n 20 /tmp/provision-$$.log >&2
+  else
+    tail -n 3 /tmp/provision-$$.log
+  fi
+  rm -f /tmp/provision-$$.log
 fi
 echo "provisioned worktree: $(pwd)"
