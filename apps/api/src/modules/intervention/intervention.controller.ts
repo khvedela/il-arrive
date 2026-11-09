@@ -218,7 +218,7 @@ export class TechnicianInterventionController {
     await this.interventionService.stopRouteIntervention(businessId, id, actorId);
   }
 
-  @Patch(':id/arived')
+  @Patch(':id/arrived')
   @UseGuards(AuthGuard, RolesGuard)
   @Role(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })

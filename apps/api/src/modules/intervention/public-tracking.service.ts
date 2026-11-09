@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { Injectable, NotFoundException, GoneException } from '@nestjs/common';
 import { InterventionRepository } from './intervention.repository';
 
@@ -27,6 +28,10 @@ export interface PublicTrackingProjection {
 @Injectable()
 export class PublicTrackingService {
   constructor(private readonly interventionRepository: InterventionRepository) {}
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
 
   async getPublicTracking(token: string): Promise<PublicTrackingProjection | null> {
     const result = await this.interventionRepository.findTrackingLinkByTokenHash(

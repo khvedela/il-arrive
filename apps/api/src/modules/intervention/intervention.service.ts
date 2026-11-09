@@ -430,6 +430,66 @@ export class InterventionService {
     );
   }
 
+  async listInterventions(
+    businessId: string,
+    status?: string,
+    technicianId?: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+    skip?: number,
+    take?: number,
+  ): Promise<any[]> {
+    return this.interventionRepository.findManyByBusiness({
+      businessId,
+      status: status as any,
+      technicianMembershipId: technicianId,
+      dateFrom,
+      dateTo,
+      skip,
+      take,
+    });
+  }
+
+  async getTodayInterventions(businessId: string): Promise<any[]> {
+    return this.interventionRepository.findTodayByStatus(businessId);
+  }
+
+  async deleteIntervention(
+    businessId: string,
+    interventionId: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.interventionRepository.delete(interventionId, businessId);
+  }
+
+  async getMyInterventions(
+    businessId: string,
+    technicianId: string,
+    status?: string,
+  ): Promise<any[]> {
+    return this.interventionRepository.findManyByBusiness({
+      businessId,
+      status: status as any,
+      technicianMembershipId: technicianId,
+    });
+  }
+
+  async getMyIntervention(
+    businessId: string,
+    interventionId: string,
+    technicianId: string,
+  ): Promise<any> {
+    const intervention = await this.interventionRepository.findById(interventionId, businessId);
+    if (!intervention) {
+      throw new NotFoundException(`Intervention ${interventionId} not found`);
+    }
+    if (intervention.technicianMembershipId !== technicianId) {
+      throw new ForbiddenException(`Intervention ${interventionId} not assigned to you`);
+    }
+    const timeline = await this.interventionRepository.findInterventionEvent(interventionId, businessId);
+    return { intervention, timeline };
+  }
+
   private async emitEvent(businessId: string, interventionId: string, event: InterventionEvent): Promise<void> {
     const interventionEvent = await this.interventionRepository.createInterventionEvent({
       interventionId,
