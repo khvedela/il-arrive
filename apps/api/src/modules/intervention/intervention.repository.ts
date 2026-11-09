@@ -32,8 +32,9 @@ export class InterventionRepository {
       businessId,
       ...(status && { status }),
       ...(technicianMembershipId && { technicianMembershipId }),
-      ...(dateFrom && { scheduledDate: { ...((where as any)?.scheduledDate), gte: dateFrom } }),
-      ...(dateTo && { scheduledDate: { ...((where as any)?.scheduledDate, lte: dateTo } }),
+      ...(dateFrom && dateTo && { scheduledDate: { gte: dateFrom, lte: dateTo } }),
+      ...(dateFrom && !dateTo && { scheduledDate: { gte: dateFrom } }),
+      ...(dateTo && !dateFrom && { scheduledDate: { lte: dateTo } }),
     };
 
     return this.prisma.intervention.findMany({
@@ -93,10 +94,8 @@ export class InterventionRepository {
   ): Promise<Intervention> {
     return this.prisma.intervention.update({
       where: {
-        id_businessId: {
-          id: interventionId,
-          businessId,
-        },
+        id: interventionId,
+        businessId,
       },
       data,
     });
@@ -105,10 +104,8 @@ export class InterventionRepository {
   async delete(interventionId: string, businessId: string): Promise<Intervention> {
     return this.prisma.intervention.delete({
       where: {
-        id_businessId: {
-          id: interventionId,
-          businessId,
-        },
+        id: interventionId,
+        businessId,
       },
     });
   }
@@ -196,6 +193,7 @@ export class InterventionRepository {
         interventionId: trackingLink.interventionId,
         tokenHash: trackingLink.tokenHash,
         createdAt: new Date(),
+        expiresAt: new Date(),
       },
     });
   }
@@ -266,10 +264,10 @@ export class InterventionRepository {
     return this.prisma.intervention.findMany({
       where,
       select: {
-        id: true,
-        scheduledDate: true,
-        windowStart: true,
-        windowEnd: true,
+        id as interventionId,
+        scheduledDate,
+        windowStart,
+        windowEnd,
       },
     });
   }

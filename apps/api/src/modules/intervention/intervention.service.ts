@@ -16,7 +16,6 @@ import {
   createInterventionDelayedEvent,
   createInterventionEnRouteEvent,
   createInterventionRescheduledEvent,
-  createInterventionStopRouteEvent,
   InterventionEvent,
 } from './intervention.event';
 import type {
@@ -52,7 +51,7 @@ export class InterventionService {
     }
 
     const intervention = await this.interventionRepository.create({
-      businessId,
+      business: { connect: { id: businessId } },
       customerId: dto.customerId,
       technicianMembershipId: dto.technicianMembershipId || undefined,
       addressLabel: dto.addressLabel,
@@ -115,10 +114,11 @@ export class InterventionService {
     }
 
     const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
-      ...dto,
+      status: updatedIntervention.status,
       windowStart: dto.windowStart ? new Date(dto.windowStart) : undefined,
       windowEnd: dto.windowEnd ? new Date(dto.windowEnd) : undefined,
       internalNotes: dto.internalNotes,
+      cancelledReason: reason,
     });
 
     return {
@@ -173,7 +173,7 @@ export class InterventionService {
       reason,
     );
 
-    await this.interventionRepository.update(interventionId, businessId, {
+    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
       status: updatedIntervention.status,
       cancelledReason: reason,
     });
@@ -217,17 +217,8 @@ export class InterventionService {
 
     const updateData: Prisma.InterventionUpdateInput = {
       status: updatedIntervention.status,
+      cancelledReason: reason,
     };
-
-    if (dto.newScheduledDate) {
-      updateData.scheduledDate = new Date(dto.newScheduledDate);
-    }
-    if (dto.newWindowStart) {
-      updateData.windowStart = new Date(dto.newWindowStart);
-    }
-    if (dto.newWindowEnd) {
-      updateData.windowEnd = new Date(dto.newWindowEnd);
-    }
 
     await this.interventionRepository.update(interventionId, businessId, updateData);
 
@@ -295,22 +286,25 @@ export class InterventionService {
 
     this.stateMachine.validateTransition(intervention, 'stop_route');
 
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
+    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
       intervention,
       'stop_route',
       actorId,
+      dto.reason,
     );
 
     await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
+      status: updatedIntervention2.status,
+      cancelledReason: dto.reason,
     });
 
-    const stopRouteEvent = createInterventionStopRouteEvent({
+    const stopRouteEvent = createInterventionEnRouteEvent({
       interventionId: intervention.id,
       actorId,
       fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
+      toStatus: updatedIntervention2.status,
       action: 'stop_route',
+      reason: dto.reason,
     });
 
     await this.emitEvent(businessId, intervention.id, stopRouteEvent);
@@ -330,22 +324,25 @@ export class InterventionService {
 
     this.stateMachine.validateTransition(intervention, 'arrived');
 
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
+    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
       intervention,
       'arrived',
       actorId,
+      dto.reason,
     );
 
     await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
+      status: updatedIntervention2.status,
+      cancelledReason: dto.reason,
     });
 
     const arrivedEvent = createInterventionArrivedEvent({
       interventionId: intervention.id,
       actorId,
       fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
+      toStatus: updatedIntervention2.status,
       action: 'arrived',
+      reason: dto.reason,
     });
 
     await this.emitEvent(businessId, intervention.id, arrivedEvent);
@@ -365,22 +362,25 @@ export class InterventionService {
 
     this.stateMachine.validateTransition(intervention, 'complete');
 
-    const { intervention: updatedIntervention, event } = await this.stateMachine.applyTransition(
+    const { intervention: updatedIntervention2, event } = await this.stateMachine.applyTransition(
       intervention,
       'complete',
       actorId,
+      reason,
     );
 
-    await this.interventionRepository.update(interventionId, businessId, {
-      status: updatedIntervention.status,
+    const updatedIntervention = await this.interventionRepository.update(interventionId, businessId, {
+      status: updatedIntervention2.status,
+      cancelledReason: reason,
     });
 
     const completedEvent = createInterventionCompletedEvent({
       interventionId: intervention.id,
       actorId,
       fromStatus: intervention.status,
-      toStatus: updatedIntervention.status,
+      toStatus: updatedIntervention2.status,
       action: 'complete',
+      reason,
     });
 
     await this.emitEvent(businessId, intervention.id, completedEvent);
@@ -492,7 +492,7 @@ export class InterventionService {
 
   private async emitEvent(businessId: string, interventionId: string, event: InterventionEvent): Promise<void> {
     const interventionEvent = await this.interventionRepository.createInterventionEvent({
-      interventionId,
+      intervention: { connect: { id: interventionId } },
       type: event.eventName,
       actorUserId: event.payload.actorId,
       payload: JSON.stringify(event.payload),

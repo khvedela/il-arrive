@@ -35,7 +35,7 @@ export class TrackingLinkService {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const trackingLink = await this.interventionRepository.createTrackingLink({
-      interventionId,
+      intervention: { connect: { id: interventionId } },
       tokenHash,
       createdAt: new Date(),
       expiresAt: this.calculateExpiry(intervention),
@@ -57,7 +57,7 @@ export class TrackingLinkService {
 
     const intervention = await this.interventionRepository.findById(
       trackingLink.interventionId,
-      trackingLink.intervention.businessId,
+      trackingLink.businessId,
     );
 
     if (!intervention) {
@@ -118,7 +118,7 @@ export class TrackingLinkService {
     await this.interventionRepository.revokeTrackingLink(trackingLink.id, businessId);
 
     await this.interventionRepository.createTrackingLink({
-      interventionId,
+      intervention: { connect: { id: interventionId } },
       tokenHash: newTokenHash,
       createdAt: new Date(),
       expiresAt: this.calculateExpiry(intervention),
@@ -142,7 +142,7 @@ export class TrackingLinkService {
 
     return {
       revoked: true,
-      revokedAt: revokedLink.revokedAt,
+      revokedAt: revokedLink.revokedAt as Date,
     };
   }
 

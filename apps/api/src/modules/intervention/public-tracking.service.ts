@@ -29,20 +29,23 @@ export interface PublicTrackingProjection {
 export class PublicTrackingService {
   constructor(private readonly interventionRepository: InterventionRepository) {}
 
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
   async getPublicTracking(token: string): Promise<PublicTrackingProjection | null> {
-    const result = await this.interventionRepository.findTrackingLinkByTokenHash(
+    const trackingLink = await this.interventionRepository.findTrackingLinkByTokenHash(
       this.hashToken(token),
     );
 
-    if (!result) {
+    if (!trackingLink) {
       return null;
     }
 
-    const { intervention } = result;
+    const intervention = await this.interventionRepository.findById(
+      trackingLink.interventionId,
+      businessId,
+    );
+
+    if (!intervention) {
+      return null;
+    }
 
     if (this.is_expired(intervention)) {
       if (this.should_show_final_state(intervention)) {
@@ -55,15 +58,22 @@ export class PublicTrackingService {
   }
 
   async getPublicTrackingTimeline(token: string): Promise<any[]> {
-    const result = await this.interventionRepository.findTrackingLinkByTokenHash(
+    const trackingLink = await this.interventionRepository.findTrackingLinkByTokenHash(
       this.hashToken(token),
     );
 
-    if (!result) {
+    if (!trackingLink) {
       throw new NotFoundException('Tracking link not found');
     }
 
-    const { intervention } = result;
+    const intervention = await this.interventionRepository.findById(
+      trackingLink.interventionId,
+      businessId,
+    );
+
+    if (!intervention) {
+      throw new NotFoundException('Intervention not found');
+    }
 
     if (this.is_expired(intervention)) {
       throw new NotFoundException('Tracking link has expired');
@@ -79,15 +89,10 @@ export class PublicTrackingService {
       type: event.type,
       createdAt: event.createdAt,
       payload: typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload,
-    }));
-  }
+      }));
+    }
 
-  private hashToken(token: string): string {
-    const crypto = require('crypto');
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
-  private buildPublicProjection(intervention: any): PublicTrackingProjection {
+    private buildPublicProjection(intervention: any): PublicTrackingProjection {
     const projection: PublicTrackingProjection = {
       businessName: intervention.business?.name || '',
       businessLogoUrl: intervention.business?.logoUrl,
