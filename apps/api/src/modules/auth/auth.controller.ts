@@ -7,7 +7,9 @@ import {
   Get,
   Patch,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AccessTokenGuard } from './guards/access-token.guard';
@@ -18,6 +20,8 @@ import { LoginDto } from './dtos/login.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { RequestPasswordResetDto } from './dtos/request-password-reset.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { SESSION_TTL_MS } from './create-session.service';
+import { clearedCookieHeaders, newCsrfToken, sessionCookieHeaders } from './session-cookies';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -34,8 +38,10 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login and receive session cookie' })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto);
+    res.setHeader('Set-Cookie', sessionCookieHeaders(result.accessToken, newCsrfToken(), SESSION_TTL_MS));
+    return result;
   }
 
   @Post('logout')
@@ -43,8 +49,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout and invalidate session' })
   @ApiCookieAuth()
   @UseGuards(AccessTokenGuard)
-  async logout(@CurrentUser() user: AuthenticatedUser) {
+  async logout(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(user.sessionId ?? '');
+    res.setHeader('Set-Cookie', clearedCookieHeaders());
   }
 
   @Get('me')
