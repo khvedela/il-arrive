@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { config } from './config';
 import { PrismaService } from './common/prisma.service';
@@ -9,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { InterventionModule } from './modules/intervention/intervention.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { DevModule } from './modules/dev/dev.module';
 
 @Module({
   imports: [
@@ -22,11 +24,22 @@ import { NotificationModule } from './modules/notification/notification.module';
         limit: 100,
       },
     ]),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (c: ConfigService) => ({
+        connection: {
+          host: c.get('REDIS_HOST', 'localhost'),
+          port: c.get('REDIS_PORT', 6379),
+          password: c.get('REDIS_PASSWORD', '') || undefined,
+        },
+      }),
+    }),
     HealthModule,
     AuthModule,
     InterventionModule,
     TrackingModule,
     NotificationModule,
+    DevModule,
   ],
   providers: [PrismaService, RedisService],
 })

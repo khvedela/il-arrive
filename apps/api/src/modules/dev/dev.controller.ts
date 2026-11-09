@@ -1,54 +1,22 @@
-import { Controller, Get, Query, HttpCode, HttpStatus, Headers } from '@nestjs/common';
-import { ConsoleSmsProvider, ConsoleSmsOutboxItem } from '../notification/providers/console-sms.provider';
+import { Controller, Get, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../common/prisma.service';
 
-export interface DevSmsQuery {
-  page?: number;
-  limit?: number;
-}
-
-export interface DevSmsResponse {
-  items: ConsoleSmsOutboxItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
+/** Dev-only SMS outbox: every notification the console provider "sent". */
 @Controller('dev/sms')
 export class DevSmsController {
-  constructor(private readonly consoleSmsProvider: ConsoleSmsProvider) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get()
-  @HttpCode(HttpStatus.OK)
-  async getOutbox(@Query() query: DevSmsQuery, @Headers('x-environment') env: string): Promise<DevSmsResponse> {
-    if (env === 'production') {
-      throw new Error('Not found');
-    }
-
-    const page = parseInt(query.page || '1', 10);
-    const limit = parseInt(query.limit || '20', 10);
-    const allItems = ConsoleSmsProvider.getOutbox();
-    const total = allItems.length;
-    const startIndex = (page - 1) * limit;
-    const items = allItems.slice(startIndex, startIndex + limit);
-
-    return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  @Get('clear')
-  @HttpCode(HttpStatus.OK)
-  async clearOutbox(@Headers('x-environment') env: string): Promise<{ success: boolean }> {
-    if (env === 'production') {
-      throw new Error('Not found');
-    }
-
-    ConsoleSmsProvider.clearOutbox();
-    return { success: true };
+  async outbox() {
+    if (this.config.get('NODE_ENV') === 'production') throw new NotFoundException();
+    return this.prisma.notification.findMany({
+      where: { provider: 'console' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
   }
 }
