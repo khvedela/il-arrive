@@ -120,8 +120,7 @@ a11y: labels "Date" / "Créneau (début–fin)"; chips are real buttons with
 ## 8. StatusBadge
 
 Anatomy: icon dot (8px `--radius-full`, status `-solid`) · label (`--text-sm` 500,
-status `-fg`) · optional meta (`--text-xs`, `-fg` at 80% opacity — no, use exact
-`-fg`, no opacity tricks). Fill `status-bg`, border 1px `status-border`,
+status `-fg`) · optional meta line (`--text-xs`, same `-fg`). Fill `status-bg`, border 1px `status-border`,
 radius `--radius-full` (pill), padding 4/8 (`--space-1`/`--space-2`).
 Sizes: sm (meta rows, h 20) · md (list rows, h 24).
 States are the 7 labels (copy.md `ui.status.*`): en-route, arrived, completed,

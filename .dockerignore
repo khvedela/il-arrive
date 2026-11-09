@@ -1,0 +1,15 @@
+node_modules
+dist
+build
+.angular
+.pnpm-store
+.env
+.env.*
+!.env.example
+coverage
+.git
+.gitignore
+docs
+.DS_Store
+*.md
+!README.md

@@ -19,6 +19,7 @@ export default [
       '**/prisma/**',
       '.pnpm-store/',
       'apps/api/jest.config.js',
+      'apps/api/jest.integration.config.js',
     ],
   },
 ];
