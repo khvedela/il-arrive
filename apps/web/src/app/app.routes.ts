@@ -48,6 +48,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/interventions/intervention-form.component').then(m => m.InterventionFormComponent),
       },
       {
+        path: 'interventions/:id/edit',
+        loadComponent: () => import('./pages/interventions/intervention-form.component').then(m => m.InterventionFormComponent),
+      },
+      {
         path: 'team',
         loadComponent: () => import('./pages/team/team.component').then(m => m.TeamComponent),
       },

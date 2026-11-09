@@ -1,6 +1,6 @@
 module.exports = {
   preset: 'jest-preset-angular',
-  setupFilesAfterEnv: ['<rootDir>/../../libs/ui/setup-jest.ts'],
+  setupFilesAfterEnv: ['<rootDir>/../../libs/ui/setup-jest.ts', '<rootDir>/src/test-setup.ts'],
   moduleNameMapper: {
     '^@il-arrive/ui$': '<rootDir>/../../libs/ui/src/public-api.ts',
     '^@il-arrive/ui/(.*)$': '<rootDir>/../../libs/ui/src/$1',
