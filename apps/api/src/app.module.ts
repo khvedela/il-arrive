@@ -13,6 +13,9 @@ import { InterventionModule } from './modules/intervention/intervention.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { DevModule } from './modules/dev/dev.module';
+import { RoutingModule } from './routing/routing.module';
+import { GeoModule } from './geo/geo.module';
+import { ETAModule } from './eta/eta.module';
 
 @Module({
   imports: [
@@ -45,6 +48,9 @@ import { DevModule } from './modules/dev/dev.module';
     TrackingModule,
     NotificationModule,
     DevModule,
+    RoutingModule.forRoot(),
+    GeoModule.forRoot(),
+    ETAModule,
   ],
   providers: [RedisService],
 })
