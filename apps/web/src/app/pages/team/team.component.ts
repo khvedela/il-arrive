@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 import { IaUIModule, IaToastService } from '@il-arrive/ui';
 import type { Role } from '@il-arrive/contracts';
 import { Role as RoleEnum } from '@il-arrive/contracts/enums';
@@ -17,7 +18,7 @@ export function roleLabel(r: Role): string {
 @Component({
   selector: 'app-team',
   standalone: true,
-  imports: [IaUIModule],
+  imports: [FormsModule, IaUIModule],
   template: `
     <h1 class="title">{{ t.title }}</h1>
 

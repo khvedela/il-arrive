@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 import { IaUIModule, IaToastService } from '@il-arrive/ui';
 import { AuthService } from '../../core/auth.service';
 import { DashboardApi, type SmsUsageDto } from '../../dashboard/dashboard-api.service';
@@ -9,7 +10,7 @@ const HEX = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/;
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [IaUIModule],
+  imports: [FormsModule, IaUIModule],
   template: `
     <h1 class="title">{{ t.title }}</h1>
 

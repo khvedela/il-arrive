@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 import { IaUIModule, type AddressSearchFn, type TimeWindow } from '@il-arrive/ui';
 import type { CreateInterventionDto } from '@il-arrive/contracts';
 import { DashboardApi } from '../../dashboard/dashboard-api.service';
@@ -50,7 +51,7 @@ export function toCreateDto(customerId: string, v: FormValue, description: strin
 @Component({
   selector: 'app-intervention-form',
   standalone: true,
-  imports: [IaUIModule, RouterLink],
+  imports: [FormsModule, IaUIModule, RouterLink],
   template: `
     <header class="head">
       <h1 class="head__title">{{ editing() ? t.editTitle : t.newTitle }}</h1>

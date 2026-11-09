@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { IaUIModule } from '@il-arrive/ui';
 import type { InterventionStatus } from '@il-arrive/contracts';
 import { InterventionsStore } from '../../dashboard/interventions.store';
@@ -23,7 +24,7 @@ export function buildFilters(status: string, technicianId: string, from: string,
 @Component({
   selector: 'app-interventions',
   standalone: true,
-  imports: [IaUIModule, RouterLink, RowListComponent, InterventionPanelComponent],
+  imports: [FormsModule, IaUIModule, RouterLink, RowListComponent, InterventionPanelComponent],
   template: `
     <header class="head">
       <h1 class="head__title">{{ t.title }}</h1>
