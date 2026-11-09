@@ -1,0 +1,65 @@
+Scope: all 6 workspace projects
+? Verifying lockfile against supply-chain policies (1586 entries)...
+Update available! 12.16.1 → 12.18.0.
+Changelog: https://pnpm.io/v/12.18.0
+To update, run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Users/khvedela/Desktop/il-arrive/.paperclip/worktrees/SLA-32-are-we-done/.review-tmp/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Downloading @prisma/client@6.19.3: 0.00 B/27.25 MB
+Downloading @img/sharp-libvips-darwin-arm64@1.3.4: 0.00 B/8.34 MB
+Downloading prisma@6.19.3: 0.00 B/17.62 MB
+✓ Lockfile passes supply-chain policies (1586 entries in 2.4s)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1463, reused 0, downloaded 785, added 284
+Progress: resolved 1463, reused 0, downloaded 1256, added 308
+Progress: resolved 1463, reused 0, downloaded 1405, added 452
+Progress: resolved 1463, reused 0, downloaded 1405, added 666
+Progress: resolved 1463, reused 0, downloaded 1405, added 940
+Progress: resolved 1463, reused 0, downloaded 1405, added 1038
+Progress: resolved 1463, reused 0, downloaded 1405, added 1386
+Packages: +1463
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1463, reused 0, downloaded 1405, added 1463, done
+.../node_modules/msgpackr-extract install$ node-gyp-build-optional-packages
+.../esbuild@0.28.0/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
+.../node_modules/@parcel/watcher install$ node scripts/build-from-source.js
+.../node_modules/@parcel/watcher install: Done
+.../node_modules/@scarf/scarf postinstall$ node ./report.js
+.../node_modules/@scarf/scarf postinstall: Done
+.../node_modules/@prisma/engines postinstall$ node scripts/postinstall.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/@prisma/engines postinstall: Done
+.../node_modules/argon2 install$ node-pre-gyp install --fallback-to-build
+.../esbuild@0.28.0/node_modules/esbuild postinstall: Done
+.../node_modules/msgpackr-extract install: Done
+.../esbuild@0.28.2/node_modules/esbuild postinstall: Done
+.../.pnpm/lmdb@3.2.6/node_modules/lmdb install$ node-gyp-build-optional-packages
+.../node_modules/prisma preinstall$ node scripts/preinstall-entry.js
+.../node_modules/prisma preinstall: Done
+.../.pnpm/lmdb@3.2.6/node_modules/lmdb install: Done
+.../node_modules/argon2 install: node-pre-gyp info it worked if it ends with ok
+.../node_modules/argon2 install: node-pre-gyp info using node-pre-gyp@1.0.11
+.../node_modules/argon2 install: node-pre-gyp info using node@26.13.0 | darwin | arm64
+.../node_modules/argon2 install: node-pre-gyp info check checked for "/Users/khvedela/Desktop/il-arrive/.paperclip/worktrees/SLA-32-are-we-done/.review-tmp/privacy/node_modules/.pnpm/argon2@0.31.2_encoding@0.1.14_supports-color@8.1.1/node_modules/argon2/lib/binding/napi-v3/argon2.node" (not found)
+.../node_modules/argon2 install: node-pre-gyp http GET https://github.com/ranisalt/node-argon2/releases/download/v0.31.2/argon2-v0.31.2-napi-v3-darwin-arm64-unknown.tar.gz
+.../node_modules/@prisma/client postinstall$ node scripts/postinstall.js
+.../node_modules/argon2 install: node-pre-gyp info install unpacking napi-v3/argon2.node
+.../node_modules/argon2 install: node-pre-gyp info extracted file count: 1 
+.../node_modules/argon2 install: [argon2] Success: "/Users/khvedela/Desktop/il-arrive/.paperclip/worktrees/SLA-32-are-we-done/.review-tmp/privacy/node_modules/.pnpm/argon2@0.31.2_encoding@0.1.14_supports-color@8.1.1/node_modules/argon2/lib/binding/napi-v3/argon2.node" is installed via remote
+.../node_modules/argon2 install: node-pre-gyp info ok 
+.../node_modules/argon2 install: Done
+.../node_modules/@prisma/client postinstall: warning In order to use "@prisma/client", please install Prisma CLI. You can install it with "npm add -D prisma".
+.../node_modules/@prisma/client postinstall: Done
+
+devDependencies:
++ @eslint/js 9.39.5
++ @playwright/test 1.65.0
++ eslint 9.39.5
++ eslint-config-prettier 10.1.8
++ prettier 3.9.10
++ typescript-eslint 8.72.1
+
+Done in 11.2s using pnpm v12.16.1

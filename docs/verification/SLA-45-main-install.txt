@@ -1,0 +1,37 @@
+Scope: all 6 workspace projects
+? Verifying lockfile against supply-chain policies (1586 entries)...
+Update available! 12.16.1 → 12.18.0.
+Changelog: https://pnpm.io/v/12.18.0
+To update, run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Users/khvedela/Desktop/il-arrive/.paperclip/worktrees/SLA-32-are-we-done/.review-tmp/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 1114, reused 1114, downloaded 0, added 1111
+✓ Lockfile passes supply-chain policies (1586 entries in 3.4s)
+Lockfile is up to date, resolution step is skipped
+Packages: +1463
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1463, reused 1463, downloaded 0, added 1463, done
+.../node_modules/@parcel/watcher install$ node scripts/build-from-source.js
+.../node_modules/@scarf/scarf postinstall$ node ./report.js
+.../node_modules/@parcel/watcher install: Done
+.../node_modules/@prisma/engines postinstall$ node scripts/postinstall.js
+.../node_modules/@scarf/scarf postinstall: Done
+.../.pnpm/lmdb@3.2.6/node_modules/lmdb install$ node-gyp-build-optional-packages
+.../node_modules/@prisma/engines postinstall: Done
+.../node_modules/prisma preinstall$ node scripts/preinstall-entry.js
+.../node_modules/prisma preinstall: Done
+.../node_modules/@prisma/client postinstall$ node scripts/postinstall.js
+.../.pnpm/lmdb@3.2.6/node_modules/lmdb install: Done
+.../node_modules/@prisma/client postinstall: warning In order to use "@prisma/client", please install Prisma CLI. You can install it with "npm add -D prisma".
+.../node_modules/@prisma/client postinstall: Done
+
+devDependencies:
++ @eslint/js 9.39.5
++ @playwright/test 1.65.0
++ eslint 9.39.5
++ eslint-config-prettier 10.1.8
++ prettier 3.9.10
++ typescript-eslint 8.72.1
+
+Done in 4.4s using pnpm v12.16.1
