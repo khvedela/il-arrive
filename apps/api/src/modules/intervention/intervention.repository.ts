@@ -264,11 +264,11 @@ export class InterventionRepository {
     return this.prisma.intervention.findMany({
       where,
       select: {
-        id as interventionId,
-        scheduledDate,
-        windowStart,
-        windowEnd,
+        id: true,
+        scheduledDate: true,
+        windowStart: true,
+        windowEnd: true,
       },
-    });
+    }).then((rows) => rows.map(({ id, ...rest }) => ({ interventionId: id, ...rest })));
   }
 }

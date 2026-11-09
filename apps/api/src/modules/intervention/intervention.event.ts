@@ -1,4 +1,4 @@
-import type { InterventionStatus } from '../../../contracts';
+import type { InterventionStatus } from '@il-arrive/contracts';
 
 export type InterventionEventName =
   | 'intervention.created'

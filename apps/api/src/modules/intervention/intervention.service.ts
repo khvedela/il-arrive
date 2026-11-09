@@ -25,7 +25,7 @@ import type {
   ReportDelayDto,
   TransitionAction,
   UpdateInterventionDto,
-} from '../../../contracts';
+} from '@il-arrive/contracts';
 
 @Injectable()
 export class InterventionService {

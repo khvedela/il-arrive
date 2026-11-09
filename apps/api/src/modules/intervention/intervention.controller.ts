@@ -11,11 +11,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { AuthGuard } from '../../auth/auth.guard';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Role } from '../../auth/role.decorator';
-import { Role as RoleType } from '../../../contracts';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { AccessTokenGuard } from '../auth/guards/access-token.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { AuthenticatedUser } from '../auth/auth-user';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Role as RoleType } from '@prisma/client';
 import { InterventionService } from './intervention.service';
 import {
   AssignTechnicianDto,
@@ -24,7 +26,7 @@ import {
   ReportDelayDto,
   TransitionAction,
   UpdateInterventionDto,
-} from '../../../contracts';
+} from '@il-arrive/contracts';
 
 @ApiTags('interventions')
 @Controller('interventions')
@@ -32,21 +34,21 @@ export class InterventionController {
   constructor(private readonly interventionService: InterventionService) {}
 
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiOperation({ summary: 'Create a new intervention' })
-  @ApiBody({ type: CreateInterventionDto })
   async createIntervention(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateInterventionDto,
   ): Promise<{ intervention: any; conflicts: any[] }> {
-    const businessId = 'business-1';
-    const actorId = 'actor-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     return this.interventionService.createIntervention(businessId, actorId, dto);
   }
 
   @Get()
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiOperation({ summary: 'List interventions' })
   @ApiQuery({ name: 'status', required: false, enum: ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'] })
   @ApiQuery({ name: 'technicianId', required: false })
@@ -55,6 +57,7 @@ export class InterventionController {
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
   async listInterventions(
+    @CurrentUser() user: AuthenticatedUser,
     @Query('status') status?: string,
     @Query('technicianId') technicianId?: string,
     @Query('dateFrom') dateFrom?: string,
@@ -62,7 +65,7 @@ export class InterventionController {
     @Query('skip') skip?: number,
     @Query('take') take?: number,
   ): Promise<any[]> {
-    const businessId = 'business-1';
+    const businessId = user.activeBusinessId;
     return this.interventionService.listInterventions(
       businessId,
       status,
@@ -75,93 +78,93 @@ export class InterventionController {
   }
 
   @Get('today')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiOperation({ summary: 'Get today interventions grouped by status' })
-  async getTodayInterventions(): Promise<any[]> {
-    const businessId = 'business-1';
+  async getTodayInterventions(@CurrentUser() user: AuthenticatedUser): Promise<any[]> {
+    const businessId = user.activeBusinessId;
     return this.interventionService.getTodayInterventions(businessId);
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get intervention by ID with timeline' })
-  async getIntervention(@Param('id') id: string): Promise<any> {
-    const businessId = 'business-1';
+  async getIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<any> {
+    const businessId = user.activeBusinessId;
     return this.interventionService.getIntervention(businessId, id);
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
-  @ApiBody({ type: UpdateInterventionDto })
   @ApiOperation({ summary: 'Update intervention' })
   async updateIntervention(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateInterventionDto,
   ): Promise<any> {
-    const businessId = 'business-1';
-    const actorId = 'actor-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     return this.interventionService.updateIntervention(businessId, id, actorId, dto);
   }
 
   @Patch(':id/assign')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
-  @ApiBody({ type: AssignTechnicianDto })
   @ApiOperation({ summary: 'Assign technician to intervention' })
   async assignTechnician(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: AssignTechnicianDto,
   ): Promise<{ intervention: any; conflicts: any[] }> {
-    const businessId = 'business-1';
-    const actorId = 'actor-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     return this.interventionService.assignTechnician(businessId, id, actorId, dto);
   }
 
   @Patch(':id/cancel')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
-  @ApiBody({ type: TransitionAction })
   @ApiOperation({ summary: 'Cancel intervention' })
   async cancelIntervention(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: TransitionAction,
   ): Promise<any> {
-    const businessId = 'business-1';
-    const actorId = 'actor-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     return this.interventionService.cancelIntervention(businessId, id, actorId, dto.reason || '');
   }
 
   @Patch(':id/reschedule')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER, RoleType.DISPATCHER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
-  @ApiBody({ type: TransitionAction })
   @ApiOperation({ summary: 'Reschedule intervention' })
   async rescheduleIntervention(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: TransitionAction,
   ): Promise<any> {
-    const businessId = 'business-1';
-    const actorId = 'actor-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     return this.interventionService.rescheduleIntervention(businessId, id, actorId, dto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.OWNER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Delete intervention' })
-  async deleteIntervention(@Param('id') id: string): Promise<void> {
-    const businessId = 'business-1';
-    await this.interventionService.deleteIntervention(businessId, id, 'actor-1');
+  async deleteIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    const businessId = user.activeBusinessId;
+    await this.interventionService.deleteIntervention(businessId, id, user.userId);
   }
 }
 
@@ -171,90 +174,91 @@ export class TechnicianInterventionController {
   constructor(private readonly interventionService: InterventionService) {}
 
   @Get()
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiOperation({ summary: 'Get technician\'s own interventions' })
   @ApiQuery({ name: 'status', required: false, enum: ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'] })
   async getMyInterventions(
+    @CurrentUser() user: AuthenticatedUser,
     @Query('status') status?: string,
   ): Promise<any[]> {
-    const businessId = 'business-1';
-    const technicianId = 'technician-1';
+    const businessId = user.activeBusinessId;
+    const technicianId = user.userId;
     return this.interventionService.getMyInterventions(businessId, technicianId, status);
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get technician\'s intervention by ID' })
-  async getMyIntervention(@Param('id') id: string): Promise<any> {
-    const businessId = 'business-1';
-    const technicianId = 'technician-1';
+  async getMyIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<any> {
+    const businessId = user.activeBusinessId;
+    const technicianId = user.userId;
     return this.interventionService.getMyIntervention(businessId, id, technicianId);
   }
 
   @Patch(':id/en-route')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as en route' })
-  async markAsEnRoute(@Param('id') id: string): Promise<void> {
-    const businessId = 'business-1';
-    const actorId = 'technician-1';
+  async markAsEnRoute(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     await this.interventionService.enRouteIntervention(businessId, id, actorId);
   }
 
   @Patch(':id/stop')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Stop route for intervention' })
-  async stopRoute(@Param('id') id: string): Promise<void> {
-    const businessId = 'business-1';
-    const actorId = 'technician-1';
+  async stopRoute(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     await this.interventionService.stopRouteIntervention(businessId, id, actorId);
   }
 
   @Patch(':id/arrived')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as arrived' })
-  async markAsArrived(@Param('id') id: string): Promise<void> {
-    const businessId = 'business-1';
-    const actorId = 'technician-1';
+  async markAsArrived(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     await this.interventionService.arrivedIntervention(businessId, id, actorId);
   }
 
   @Patch(':id/complete')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as completed' })
-  async markAsComplete(@Param('id') id: string): Promise<void> {
-    const businessId = 'business-1';
-    const actorId = 'technician-1';
+  async markAsComplete(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     await this.interventionService.completeIntervention(businessId, id, actorId);
   }
 
   @Patch(':id/delay')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Role(RoleType.TECHNICIAN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
-  @ApiBody({ type: ReportDelayDto })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Report delay for intervention' })
   async reportDelay(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: ReportDelayDto,
   ): Promise<void> {
-    const businessId = 'business-1';
-    const actorId = 'technician-1';
+    const businessId = user.activeBusinessId;
+    const actorId = user.userId;
     await this.interventionService.reportDelay(businessId, id, actorId, dto);
   }
 }

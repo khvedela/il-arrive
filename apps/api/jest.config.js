@@ -9,6 +9,6 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src/'],
   moduleNameMapper: {
-    '^@libs/(.*)$': '<rootDir>/../../../libs/$1',
+    '^@libs/(.*)$': '<rootDir>/../../libs/$1',
   },
 };

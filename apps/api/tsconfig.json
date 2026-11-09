@@ -10,8 +10,8 @@
     "target": "ES2022",
     "baseUrl": ".",
     "paths": {
-      "@libs/*": ["../../../libs/*"],
-      "@contracts": ["../../../libs/contracts/src/intervention-status"]
+      "@libs/*": ["../../libs/*"],
+      "@contracts": ["../../libs/contracts/src/intervention-status"]
     }
   },
   "include": ["src/**/*.ts"]

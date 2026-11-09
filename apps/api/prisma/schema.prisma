@@ -27,7 +27,6 @@ model Business {
   interventions Intervention[]
   invitations Invitation[]
   auditLogs   AuditLog[]
-  passwordResetTokens PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
