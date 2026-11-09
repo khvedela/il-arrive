@@ -49,7 +49,7 @@ describe('POST /auth/accept-invitation over real HTTP (Postgres)', () => {
   async function owner() {
     const res = await http()
       .post('/auth/register')
-      .send({ email: `own-${n()}@x.test`, password: 'Sup3rSecret!pw', firstName: 'O', lastName: 'W', businessName: 'Biz', phone: '+33100000000' })
+      .send({ email: `own-${n()}@x.test`, password: 'Sup3rSecret!pw', firstName: 'O', lastName: 'W', businessName: `Biz ${n()}`, phone: '+33100000000' })
       .expect(201);
     return { ...jar(res), businessId: res.body.activeBusinessId as string };
   }
