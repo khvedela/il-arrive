@@ -1,0 +1,3 @@
+REPRODUCED: console SMS logger emits phone and raw tracking token
+REPRODUCED: global error filter emits raw public tracking URL
+REPRODUCED: retention preserves phone/email/address/coordinates/description and excludes revoked links
