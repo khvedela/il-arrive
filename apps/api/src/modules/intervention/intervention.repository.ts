@@ -106,13 +106,11 @@ export class InterventionRepository {
         data: { interventionId, type: event.type, actorUserId: event.actorUserId, payload: event.payload },
       });
       if (patch.status === 'EN_ROUTE') {
-        // One row per intervention (unique): a new en_route after stop_route reopens it from scratch.
+        // One row per intervention (unique): a new en_route after stop_route reopens it from scratch;
+        // a session that is somehow still active is left as it is.
         const fresh = { startedAt: new Date(), endedAt: null, ...POSITION_RESET, etaAt: null, etaComputedAt: null, etaSource: null };
-        await tx.trackingSession.upsert({
-          where: { interventionId },
-          create: { interventionId, startedAt: fresh.startedAt },
-          update: fresh,
-        });
+        await tx.trackingSession.updateMany({ where: { interventionId, endedAt: { not: null } }, data: fresh });
+        await tx.trackingSession.createMany({ data: [{ interventionId, startedAt: fresh.startedAt }], skipDuplicates: true });
       } else {
         // ARRIVED, COMPLETED, CANCELLED, stop_route and reschedule all end the location session.
         await tx.trackingSession.updateMany({
