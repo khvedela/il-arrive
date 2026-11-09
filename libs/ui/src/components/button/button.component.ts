@@ -1,4 +1,4 @@
-import { Component, input, computed, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, ChangeDetectionStrategy, output } from '@angular/core';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'action';
@@ -68,50 +68,50 @@ export type ButtonSize = 'sm' | 'md' | 'lg' | 'action';
     }
 
     /* Sizes */
-    button[size-sm] { height: var(--control-h-sm); padding: 0 var(--space-3); border-radius: var(--radius-md); }
-    button[size-md] { height: var(--control-h-md); padding: 0 var(--space-3); border-radius: var(--radius-md); }
-    button[size-lg] { height: var(--control-h-lg); padding: 0 var(--space-4); border-radius: var(--radius-lg); }
-    button[size-action] { height: var(--control-h-action); padding: 0 var(--space-4); border-radius: var(--radius-lg); width: 100%; }
+    button.ia-button__size--sm { height: var(--control-h-sm); padding: 0 var(--space-3); border-radius: var(--radius-md); }
+    button.ia-button__size--md { height: var(--control-h-md); padding: 0 var(--space-3); border-radius: var(--radius-md); }
+    button.ia-button__size--lg { height: var(--control-h-lg); padding: 0 var(--space-4); border-radius: var(--radius-lg); }
+    button.ia-button__size--action { height: var(--control-h-action); padding: 0 var(--space-4); border-radius: var(--radius-lg); width: 100%; }
 
     /* Primary */
-    button[variant-primary] {
+    button.ia-button--primary {
       background: var(--color-ink);
       color: var(--color-text-inverse);
     }
-    button[variant-primary]:hover { background: var(--color-ink-hover); }
-    button[variant-primary]:active { background: var(--color-ink-active); }
+    button.ia-button--primary:hover { background: var(--color-ink-hover); }
+    button.ia-button--primary:active { background: var(--color-ink-active); }
 
     /* Secondary */
-    button[variant-secondary] {
+    button.ia-button--secondary {
       background: var(--color-surface);
       border-color: var(--color-border-strong);
       color: var(--color-text-primary);
     }
-    button[variant-secondary]:hover { background: var(--color-surface-hover); }
+    button.ia-button--secondary:hover { background: var(--color-surface-hover); }
 
     /* Ghost */
-    button[variant-ghost] {
+    button.ia-button--ghost {
       background: transparent;
       color: var(--color-text-secondary);
     }
-    button[variant-ghost]:hover {
+    button.ia-button--ghost:hover {
       background: var(--color-surface-hover);
       color: var(--color-text-primary);
     }
 
     /* Danger */
-    button[variant-danger] {
+    button.ia-button--danger {
       background: var(--color-danger);
       color: var(--color-text-inverse);
     }
-    button[variant-danger]:hover { background: var(--color-danger-hover); }
+    button.ia-button--danger:hover { background: var(--color-danger-hover); }
 
     /* Danger ghost */
-    button[variant-danger-ghost] {
+    button.ia-button--danger-ghost {
       background: transparent;
       color: var(--color-danger-text);
     }
-    button[variant-danger-ghost]:hover { background: var(--color-error-bg); }
+    button.ia-button--danger-ghost:hover { background: var(--color-error-bg); }
 
     /* Disabled */
     button:disabled {
@@ -172,7 +172,7 @@ export class IaButtonComponent {
   loadingText = input<string>('Chargement...');
   type = input<'button' | 'submit' | 'reset'>('button');
 
-  clicked = new EventEmitter<Event>();
+  clicked = output<Event>();
 
   protected hostClasses = computed(() => {
     return `ia-button ia-button--${this.variant()} ia-button__size--${this.size()}`;

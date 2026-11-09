@@ -1,8 +1,8 @@
 import {
   Component,
   input,
-  EventEmitter,
   ChangeDetectionStrategy,
+  output,
 } from '@angular/core';
 import { IaFocusTrapDirective } from '../../shared/focus-trap.directive';
 
@@ -70,8 +70,8 @@ export class IaModalComponent {
   label = input('');
   maxWidth = input('420px');
   showFooter = input(false);
-  closed = new EventEmitter<void>();
-  confirmed = new EventEmitter<void>();
+  closed = output<void>();
+  confirmed = output<void>();
 
   protected onClose = (): void => { this.closed.emit(); };
   protected onScrimClick = (): void => { this.closed.emit(); };

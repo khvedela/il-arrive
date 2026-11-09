@@ -2,10 +2,10 @@ import {
   Component,
   input,
   signal,
-  EventEmitter,
   AfterViewInit,
   OnDestroy,
   ChangeDetectionStrategy,
+  output,
 } from '@angular/core';
 import { MenuItemDef } from './menu.types';
 
@@ -93,7 +93,7 @@ export class IaMenuComponent implements AfterViewInit, OnDestroy {
   label = input('Actions');
   triggerLabel = input<string>('');
   triggerIcon = input(true);
-  selected = new EventEmitter<MenuItemDef>();
+  selected = output<MenuItemDef>();
 
   isOpen = signal(false);
   activeIndex = signal(-1);
