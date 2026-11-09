@@ -1,5 +1,5 @@
 import type { InterventionStatus } from './intervention-status';
-import type { LocationStatus } from './location-status';
+import type { LocationStatus, LocationFixStatus } from './location-status';
 
 export interface PublicTrackingProjection {
   businessName: string;
@@ -16,10 +16,11 @@ export interface PublicTrackingProjection {
   etaComputedAt?: string;
   delayMinutes?: number;
   delayReason?: string;
+  locationStatus?: LocationStatus;
   location?: {
-    lat: number;
-    lng: number;
-    status: LocationStatus;
+    lat?: number;
+    lng?: number;
+    status: LocationFixStatus;
     lastFixAt: string;
   };
   contactPhone: string;

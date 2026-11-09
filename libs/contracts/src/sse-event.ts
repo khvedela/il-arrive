@@ -1,5 +1,5 @@
 import type { InterventionStatus } from './intervention-status';
-import type { LocationStatus, EtaSource } from './location-status';
+import type { LocationFixStatus, EtaSource } from './location-status';
 
 export type SSEEventType =
   | 'status_change'
@@ -36,7 +36,7 @@ export interface SSELocationUpdateEvent {
   data: {
     lat: number;
     lng: number;
-    status: LocationStatus;
+    status: LocationFixStatus;
     lastFixAt: string;
   };
 }

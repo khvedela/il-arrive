@@ -4,7 +4,7 @@ import type { Plan } from './plan';
 import type { NotificationKind } from './notification-kind';
 import type { NotificationChannel } from './notification-channel';
 import type { NotificationStatus } from './notification-status';
-import type { EtaSource, LocationStatus } from './location-status';
+import type { EtaSource, LocationStatus, LocationFixStatus } from './location-status';
 import type {
   CreateInterventionDto,
   UpdateInterventionDto,
@@ -42,6 +42,7 @@ export type {
   NotificationStatus,
   EtaSource,
   LocationStatus,
+  LocationFixStatus,
   // DTOs
   CreateInterventionDto,
   UpdateInterventionDto,
