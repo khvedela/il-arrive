@@ -35,10 +35,6 @@ const ACTION_BUTTONS: Record<string, ActionButton[]> = {
   CANCELLED: [],
 };
 
-function formatTime24(timeStr: string): string {
-  return timeStr;
-}
-
 function formatWindow(inv: TechIntervention): string {
   return `${inv.windowStart}h–${inv.windowEnd}h`;
 }
@@ -48,13 +44,6 @@ function formatDateShort(dateStr: string): string {
   const months = ['janv.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const days = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
   return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
-}
-
-function getPlatform(): 'ios' | 'android' | 'other' {
-  const ua = navigator.userAgent;
-  if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
-  if (/Android/.test(ua)) return 'android';
-  return 'other';
 }
 
 @Component({
@@ -745,7 +734,6 @@ export class TechInterventionDetailComponent implements OnInit, OnDestroy {
     }
 
     this.loading.set(true);
-    const prevStatus = inv.status;
     const optimisticState = { ...inv, status: ACTION_TO_STATUS[action] };
     this.intervention.set(optimisticState);
 

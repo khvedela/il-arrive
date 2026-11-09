@@ -1,5 +1,4 @@
 import type { InterventionStatus } from '@il-arrive/contracts';
-import { InterventionStatus as IS } from '@il-arrive/contracts';
 
 export interface TechIntervention {
   id: string;

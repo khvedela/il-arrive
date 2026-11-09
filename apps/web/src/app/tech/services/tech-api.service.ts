@@ -1,10 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
 import type { InterventionStatus } from '@il-arrive/contracts';
-import type { TransitionAction, ReportDelayDto } from '@il-arrive/contracts';
 import type { TechIntervention, TechTodayResponse, TransitionResult } from '../models/intervention';
-import { of, timer, defer } from 'rxjs';
-import { map, catchError, delay, tap, take } from 'rxjs/operators';
+import { of, defer } from 'rxjs';
+import { map, catchError, delay } from 'rxjs/operators';
 
 export type TechAction = 'en_route' | 'arrived' | 'complete' | 'cancel' | 'stop_route';
 

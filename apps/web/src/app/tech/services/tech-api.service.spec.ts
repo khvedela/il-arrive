@@ -1,8 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { TechApi, TechApiService, ACTION_TO_STATUS, VALID_TRANSITIONS, type TechAction } from './tech-api.service';
-import type { TechIntervention } from '../models/intervention';
+import { TechApi, TechApiService, ACTION_TO_STATUS, VALID_TRANSITIONS } from './tech-api.service';
 import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
-import type { InterventionStatus } from '@il-arrive/contracts';
 import { firstValueFrom } from 'rxjs';
 
 describe('TechApi', () => {

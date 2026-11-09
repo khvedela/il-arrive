@@ -11,7 +11,6 @@ import {
 import { TechApiService } from '../services/tech-api.service';
 import type { TechIntervention, TechTodayResponse } from '../models/intervention';
 import { InterventionStatus as IS } from '@il-arrive/contracts/enums';
-import type { InterventionStatus } from '@il-arrive/contracts';
 
 interface GroupedInterventions {
   inProgress: TechIntervention[];
