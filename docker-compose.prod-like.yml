@@ -27,9 +27,11 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     ports:
-      - "3000:3000"
+      # loopback only: browsers reach the API through the web nginx (/api), so X-Forwarded-For can be trusted
+      - "127.0.0.1:3000:3000"
     environment:
       APP_ENV: production
+      TRUST_PROXY: "1"
       API_PORT: "3000"
       API_HOST: "0.0.0.0"
       DATABASE_URL: postgresql://ilarrive:ilarrive_prod_like@postgres:5432/ilarrive?schema=public

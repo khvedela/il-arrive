@@ -141,4 +141,27 @@ describe('POST /auth/accept-invitation over real HTTP (Postgres)', () => {
     // a different client is not locked out and can legitimately redeem
     await accept('198.51.100.9').send(body(token)).expect(201);
   });
+
+  it('without TRUST_PROXY a caller cannot dodge the throttle by rotating X-Forwarded-For', async () => {
+    const direct = (await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }), DatabaseModule, AuthModule],
+    })
+      .overrideProvider(MailProvider)
+      .useValue({ send: async () => ({ providerMessageId: 'test' }) })
+      .compile()
+      .then((m) => m.createNestApplication()));
+    direct.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    await direct.init();
+    try {
+      const guess = (i: number) =>
+        request(direct.getHttpServer())
+          .post('/auth/accept-invitation')
+          .set('X-Forwarded-For', `192.0.2.${i + 1}`)
+          .send({ token: 'nope', password: 'Passw0rd!long', firstName: 'N' });
+      for (let i = 0; i < ACCEPT_INVITATION_ATTEMPTS; i++) await guess(i).expect(400);
+      await guess(ACCEPT_INVITATION_ATTEMPTS).expect(429);
+    } finally {
+      await direct.close();
+    }
+  });
 });
