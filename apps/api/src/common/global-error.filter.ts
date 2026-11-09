@@ -20,7 +20,7 @@ export class GlobalErrorFilter implements ExceptionFilter {
     const raw = typeof body === 'string' ? body : (body as { message?: string | string[] }).message ?? exception.message;
     const message = Array.isArray(raw) ? raw.join('; ') : raw;
 
-    console.error(`[${request.method} ${request.url}]`, exception);
+    console.error(`[${request.method}] Error occurred at path`, request.url, 'Request ID:', reqId);
 
     response.status(status).json({
       statusCode: status,
