@@ -1,27 +1,49 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { IsEnum } from 'class-validator';
 import { NotificationKind } from '@prisma/client';
 import { NotificationService } from './notification.service';
+import { Auth, AuthContext, NotificationAuthGuard, Roles } from './auth.guard';
 
 export class NotifyDto {
   @IsEnum(NotificationKind)
   kind!: NotificationKind;
 }
 
-// TODO(auth): add the session/roles guard + business scoping once the auth module lands.
-@Controller('interventions/:id')
+@UseGuards(NotificationAuthGuard)
+@Controller()
 export class NotificationController {
   constructor(private readonly notifications: NotificationService) {}
 
-  @Post('notify')
+  @Post('interventions/:id/notify')
+  @Roles('OWNER', 'DISPATCHER')
   @HttpCode(HttpStatus.ACCEPTED)
-  notify(@Param('id') id: string, @Body() dto: NotifyDto) {
-    return this.notifications.request({ interventionId: id, kind: dto.kind, manual: true });
+  notify(@Auth() auth: AuthContext, @Param('id') id: string, @Body() dto: NotifyDto) {
+    return this.notifications.request({
+      interventionId: id,
+      kind: dto.kind,
+      manual: true,
+      businessId: auth.businessId,
+    });
   }
 
-  @Get('share-message')
-  shareMessage(@Param('id') id: string, @Query('kind') kind?: NotificationKind) {
-    const k = kind && kind in NotificationKind ? kind : 'EN_ROUTE';
-    return this.notifications.buildShareMessage(id, k);
+  /** Technicians only get messages for their own interventions. */
+  @Get('interventions/:id/share-message')
+  @Roles('OWNER', 'DISPATCHER', 'TECHNICIAN')
+  shareMessage(@Auth() auth: AuthContext, @Param('id') id: string, @Query('kind') kind?: string) {
+    const k = kind && kind in NotificationKind ? (kind as NotificationKind) : 'EN_ROUTE';
+    return this.notifications.buildShareMessage(
+      id,
+      {
+        businessId: auth.businessId,
+        technicianUserId: auth.role === 'TECHNICIAN' ? auth.userId : undefined,
+      },
+      k,
+    );
+  }
+
+  @Get('business/sms-usage')
+  @Roles('OWNER', 'DISPATCHER')
+  usage(@Auth() auth: AuthContext) {
+    return this.notifications.getUsage(auth.businessId);
   }
 }

@@ -17,6 +17,7 @@ model Business {
   plan                Plan     @default(TRIAL)
   smsQuotaMonthly     Int      @default(0)
   smsUsedThisPeriod   Int      @default(0)
+  smsPeriodStart      DateTime @default(now())
   notificationPrefs   Json?
   timezone            String   @default("Europe/Paris")
   trialEndsAt         DateTime?
