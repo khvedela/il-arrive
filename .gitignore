@@ -13,3 +13,6 @@ coverage/
 prisma/migrations/dev/*
 !prisma/migrations/dev/.keep
 tsconfig.tsbuildinfo
+
+# Paperclip per-task worktrees
+.paperclip/
