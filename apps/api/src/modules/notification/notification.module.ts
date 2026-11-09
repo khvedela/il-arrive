@@ -9,7 +9,6 @@ import { ConsoleSmsProvider } from './providers/console-sms.provider';
 import { SMS_PROVIDER } from './sms-provider';
 import { NotificationService, NOTIFICATIONS_QUEUE } from './notification.service';
 import { NotificationController } from './notification.controller';
-import { NotificationAuthGuard } from './auth.guard';
 import { NotificationEventsService } from './notification-events.service';
 import { NotificationProcessor } from './notification.processor';
 import { TrackingLinkService } from './tracking-link.service';
@@ -18,7 +17,6 @@ const shared = [
   TrackingLinkService,
   NotificationService,
   NotificationEventsService,
-  NotificationAuthGuard,
   { provide: SMS_PROVIDER, useClass: ConsoleSmsProvider },
 ];
 

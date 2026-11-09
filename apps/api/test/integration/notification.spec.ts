@@ -350,6 +350,29 @@ describe('Notifications (Postgres + Redis)', () => {
   });
 
   describe('HTTP auth isolation', () => {
+    it('accepts the browser session cookie (+CSRF on mutations) like the rest of the API', async () => {
+      const a = await seed();
+      const b = await seed();
+      const http = () => request(app.getHttpServer());
+      await prisma.membership.update({ where: { id: a.tech.id }, data: { role: 'OWNER' } });
+      const { token } = await app.get(CreateSessionService).execute({ userId: a.user.id });
+      const cookie = `session=${token}; csrf_token=csrf-x`;
+
+      const usage = await http().get('/business/sms-usage').set('Cookie', cookie).expect(200);
+      expect(usage.body).toMatchObject({ quota: 50 });
+      await http().get(`/interventions/${a.iv.id}/share-message`).set('Cookie', cookie).expect(200);
+      await http().get('/business/sms-usage').expect(401);
+      // cookie-authenticated mutation needs the CSRF header
+      await http().post(`/interventions/${a.iv.id}/notify`).set('Cookie', cookie).send({ kind: 'EN_ROUTE' }).expect(403);
+      await http().post(`/interventions/${a.iv.id}/notify`).set('Cookie', cookie).set('x-csrf-token', 'csrf-x')
+        .send({ kind: 'EN_ROUTE' }).expect(202);
+      // another business's intervention is not reachable with this session
+      await http().get(`/interventions/${b.iv.id}/share-message`).set('Cookie', cookie).expect(404);
+      // technician cannot read usage, nor another technician's share message
+      await prisma.membership.update({ where: { id: a.tech.id }, data: { role: 'TECHNICIAN' } });
+      await http().get('/business/sms-usage').set('Cookie', cookie).expect(403);
+    });
+
     async function auth(a: Awaited<ReturnType<typeof seed>>, role: 'OWNER' | 'TECHNICIAN') {
       await prisma.membership.update({ where: { id: a.tech.id }, data: { role } });
       return `Bearer ${(await app.get(CreateSessionService).execute({ userId: a.user.id })).token}`;
