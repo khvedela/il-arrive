@@ -7,7 +7,12 @@
     "rootDir": "./src",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "target": "ES2022"
+    "target": "ES2022",
+    "baseUrl": ".",
+    "paths": {
+      "@libs/*": ["../../../libs/*"],
+      "@contracts": ["../../../libs/contracts/src/intervention-status"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

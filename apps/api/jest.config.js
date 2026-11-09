@@ -8,4 +8,7 @@ module.exports = {
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   roots: ['<rootDir>/src/'],
+  moduleNameMapper: {
+    '^@libs/(.*)$': '<rootDir>/../../../libs/$1',
+  },
 };
