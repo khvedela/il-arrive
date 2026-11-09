@@ -34,7 +34,9 @@ export class AuthHttpInterceptor implements HttpInterceptor {
 
     return next.handle(apiReq).pipe(
       catchError((err: HttpErrorResponse) => {
-        const isAuthCall = /\/auth\/(login|register|reset-password|accept-invitation)/.test(req.url);
+        // /auth/me is the session probe (guards handle it); sms-usage 401s on a notification-only guard (SLA-47)
+        // and must not log the user out — Settings degrades gracefully instead.
+        const isAuthCall = /\/auth\/(login|register|reset-password|accept-invitation|me)|\/business\/sms-usage/.test(req.url);
         if (err.status === 401 && !isAuthCall) {
           this.router.navigate(['/login']);
         }

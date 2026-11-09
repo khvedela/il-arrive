@@ -1,7 +1,6 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { IaToastContainerComponent } from '@il-arrive/ui';
-import { AuthService } from './core/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -18,14 +17,4 @@ import { AuthService } from './core/auth.service';
     }
   `],
 })
-export class AppComponent implements OnInit {
-  private authService = inject(AuthService);
-
-  ngOnInit(): void {
-    // The technician PWA (/tech) runs on its own mock API and must not trigger the dashboard auth bootstrap.
-    if (typeof location !== 'undefined' && location.pathname.startsWith('/tech')) {
-      return;
-    }
-    this.authService.bootstrap().subscribe({ error: () => undefined });
-  }
-}
+export class AppComponent {}

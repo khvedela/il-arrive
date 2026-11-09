@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -102,12 +103,24 @@ describe('AuthApi', () => {
 
   it('adds CSRF header from cookie and redirects to /login on 401', () => {
     document.cookie = 'csrf_token=abc123';
-    api.getMe().subscribe({ error: () => undefined });
-    const req = httpMock.expectOne(`${API_URL}/auth/me`);
+    api.logout().subscribe({ error: () => undefined });
+    const req = httpMock.expectOne(`${API_URL}/auth/logout`);
     expect(req.request.headers.get('X-CSRF-Token')).toBe('abc123');
     req.flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/login']);
     document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  });
+
+  it('does not redirect on 401 from the /auth/me session probe', () => {
+    api.getMe().subscribe({ error: () => undefined });
+    httpMock.expectOne(`${API_URL}/auth/me`).flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not redirect on 401 from /business/sms-usage', () => {
+    TestBed.inject(HttpClient).get(`${API_URL}/business/sms-usage`).subscribe({ error: () => undefined });
+    httpMock.expectOne(`${API_URL}/business/sms-usage`).flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
   });
 
   it('does not redirect on 401 from /auth/login', () => {
