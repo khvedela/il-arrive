@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, computed, signal, ChangeDetectionStrategy, NgZone, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
@@ -781,7 +782,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   protected projection = computed(() => this.state.projection || {} as PublicTrackingProjection);
 
   private token = '';
-  private eventSource: EventSource | null = null;
+  private eventSub: Subscription | null = null;
   private lastEventId = '';
 
   // -------------------------------------------------------------------------
@@ -1091,7 +1092,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
 
   private startSSE(): void {
     this.closeEventSource();
-    this.trackingApi.subscribeToEvents(this.token).pipe(
+    this.eventSub = this.trackingApi.subscribeToEvents(this.token).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: (event: MessageEvent<string>) => {
@@ -1106,10 +1107,8 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   }
 
   private closeEventSource(): void {
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
+    this.eventSub?.unsubscribe();
+    this.eventSub = null;
   }
 
   private handleSSEEvent(event: SSEEvent): void {

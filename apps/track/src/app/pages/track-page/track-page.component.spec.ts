@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { TrackPageComponent } from './track-page.component';
 import { TrackingApi } from '../../services/tracking-api.service';
 import { mockFixtures } from '../../data/mock-fixtures';
@@ -312,6 +312,30 @@ describe('TrackPageComponent', () => {
       const comp = createComponent('unknown-token', mockApiError(404, 'Not Found'));
       expect(comp.isExpiredState()).toBe(true);
       expect(comp.expiredTitle()).toContain('introuvable');
+    });
+  });
+
+  describe('stream subscription ownership', () => {
+    it('unsubscribes the old stream on replacement and on destroy', () => {
+      const subjects: Subject<MessageEvent>[] = [];
+      const api = {
+        fetchProjection: () => of(mockFixtures['confirmed']),
+        subscribeToEvents: () => {
+          const s = new Subject<MessageEvent>();
+          subjects.push(s);
+          return s;
+        },
+      } as unknown as TrackingApi;
+      const comp = createComponent('confirmed-abc123', api);
+      expect(subjects).toHaveLength(1);
+      expect(subjects[0].observed).toBe(true);
+      // session_end -> closes stream, refetches, opens a new one
+      subjects[0].next(new MessageEvent('message', { data: JSON.stringify({ event: 'session_end', data: {} }) }));
+      expect(subjects[0].observed).toBe(false);
+      expect(subjects).toHaveLength(2);
+      expect(subjects[1].observed).toBe(true);
+      comp.ngOnDestroy();
+      expect(subjects[1].observed).toBe(false);
     });
   });
 

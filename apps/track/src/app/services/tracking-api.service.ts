@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError, timer, mergeMap, map } from 'rxjs';
 import type { PublicTrackingProjection } from '@il-arrive/contracts';
@@ -8,8 +8,8 @@ import { mockFixtures, tokenFixtureMap } from '../data/mock-fixtures';
 /**
  * TrackingApi — fetches and subscribes to public tracking data.
  *
- * Uses a MOCK_MODE flag to return mock fixtures for development/testing.
- * In production, calls the real API endpoints.
+ * Calls the real API on every host. Fixtures are returned only in dev builds
+ * with an explicit ?mock=1.
  *
  * The service is designed to be replaced with real API calls later (SLA-9).
  */
@@ -22,7 +22,7 @@ export class TrackingApi {
 
   /**
    * Fetch the full tracking projection for a given token.
-   * Returns mock data when MOCK_MODE=true, real API otherwise.
+   * Returns mock data only with the explicit dev opt-in.
    */
   fetchProjection(token: string): Observable<PublicTrackingProjection> {
     if (this.isMockMode()) {
@@ -35,7 +35,7 @@ export class TrackingApi {
 
   /**
    * Subscribe to SSE events for live updates.
-   * Returns mock SSE-like events when MOCK_MODE=true.
+   * Returns mock SSE-like events only with the explicit dev opt-in.
    */
   subscribeToEvents(token: string): Observable<MessageEvent> {
     if (this.isMockMode()) {
@@ -49,10 +49,10 @@ export class TrackingApi {
   // -------------------------------------------------------------------------
 
   private isMockMode(): boolean {
-    if (typeof window === 'undefined') return false;
-    // In dev, always use mocks; in prod, opt-in with ?mock=1
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    return isDev || window.location.search.includes('mock=1');
+    // Real HTTP/SSE is the default on every host (including localhost).
+    // Fixtures are an explicit, development-build-only opt-in via ?mock=1.
+    if (typeof window === 'undefined' || !isDevMode()) return false;
+    return new URLSearchParams(window.location.search).get('mock') === '1';
   }
 
   private mockFetch(token: string): Observable<PublicTrackingProjection> {

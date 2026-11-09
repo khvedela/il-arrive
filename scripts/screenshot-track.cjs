@@ -25,7 +25,7 @@ const EVIDENCE_DIR = path.join(__dirname, '..', 'apps', 'track', 'evidence');
   for (const [state, token] of Object.entries(TOKENS)) {
     const page = await browser.newPage();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(BASE + '/t/' + token);
+    await page.goto(BASE + '/t/' + token + '?mock=1');
     await page.waitForSelector('.track-page', { timeout: 5000 }).catch(() => {});
     await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(dir, `track-${state}.png`), fullPage: true });
