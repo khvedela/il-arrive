@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
@@ -30,6 +30,8 @@ export class RegisterDto {
   phone?: string;
 
   @ApiProperty({ example: false, required: false })
-  @Transform(({ value }) => value === 'true')
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
   isTechnician?: boolean;
 }
