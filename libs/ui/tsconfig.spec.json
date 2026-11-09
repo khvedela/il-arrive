@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-test",
+    "types": ["jest", "node", "jsdom"],
+    "module": "ES2022"
+  },
+  "include": ["src/**/*.ts", "setup-jest.ts"]
+}

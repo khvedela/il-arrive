@@ -38,6 +38,7 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "styles": [
+              "../../libs/ui/src/tokens.css",
               "src/styles.scss"
             ],
             "scripts": []
