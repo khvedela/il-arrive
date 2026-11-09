@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ilarrive
+      POSTGRES_USER: ilarrive
+      POSTGRES_PASSWORD: ilarrive_prod_like
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilarrive"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: redis-server --requirepass ilarrive_prod_like
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ilarrive_prod_like", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      APP_ENV: production
+      API_PORT: "3000"
+      API_HOST: "0.0.0.0"
+      DATABASE_URL: postgresql://ilarrive:ilarrive_prod_like@postgres:5432/ilarrive?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ilarrive_prod_like
+      JWT_SECRET: change-me-in-production
+      SESSION_SECRET: change-me-in-production
+      FRONTEND_WEB_URL: http://localhost:8080
+      FRONTEND_TRACK_URL: http://localhost:8081
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: noreply@ilarrive.local
+      SENTRY_DSN:
+      SMS_PROVIDER: console
+      ROUTING_PROVIDER: fake
+      GEOCODING_PROVIDER: ban
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/worker"]
+    environment:
+      APP_ENV: production
+      API_HOST: "0.0.0.0"
+      DATABASE_URL: postgresql://ilarrive:ilarrive_prod_like@postgres:5432/ilarrive?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ilarrive_prod_like
+      JWT_SECRET: change-me-in-production
+      SESSION_SECRET: change-me-in-production
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: noreply@ilarrive.local
+      SENTRY_DSN:
+      SMS_PROVIDER: console
+      ROUTING_PROVIDER: fake
+      GEOCODING_PROVIDER: ban
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  track:
+    build:
+      context: .
+      dockerfile: apps/track/Dockerfile
+    ports:
+      - "8081:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  postgres_data:
