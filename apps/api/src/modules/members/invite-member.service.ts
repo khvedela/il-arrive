@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { MailProvider } from '../mail/mail.provider';
-import * as argon2 from 'argon2';
-import { v4 as uuidv4 } from 'uuid';
+import { digestToken, generateToken } from '../../common/tokens';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
@@ -45,8 +44,8 @@ export class InviteMemberService {
       throw new Error('Invitation already exists');
     }
 
-    const token = Buffer.from(uuidv4()).toString('hex');
-    const tokenHash = await argon2.hash(token);
+    const token = generateToken();
+    const tokenHash = digestToken(token);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const invitation = await this.prisma.invitation.create({

@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import * as argon2 from 'argon2';
-import { v4 as uuidv4 } from 'uuid';
+import { digestToken, generateToken } from '../../common/tokens';
 import { ConfigService } from '@nestjs/config';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
@@ -81,7 +81,7 @@ export class AuthService {
       ],
       activeBusinessId: business.id,
       sessionId: session.id,
-      accessToken: session.tokenHash,
+      accessToken: session.token,
     };
   }
 
@@ -110,7 +110,7 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
       },
       sessionId: session.id,
-      accessToken: session.tokenHash,
+      accessToken: session.token,
     };
   }
 
@@ -190,8 +190,8 @@ export class AuthService {
       return;
     }
 
-    const token = Buffer.from(uuidv4()).toString('hex');
-    const tokenHash = await argon2.hash(token);
+    const token = generateToken();
+    const tokenHash = digestToken(token);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await this.prisma.passwordResetToken.create({
@@ -213,7 +213,7 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const tokenHash = await argon2.hash(dto.token);
+    const tokenHash = digestToken(dto.token);
     const resetToken = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash },
     });

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import * as argon2 from 'argon2';
+import { digestToken } from '../../common/tokens';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class AcceptInvitationService {
     lastName: string;
     phone?: string;
   }) {
-    const tokenHash = await argon2.hash(token);
+    const tokenHash = digestToken(token);
     const invitation = await this.prisma.invitation.findUnique({
       where: { tokenHash },
     });

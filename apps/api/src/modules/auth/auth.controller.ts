@@ -6,9 +6,13 @@ import {
   HttpStatus,
   Get,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { AccessTokenGuard } from './guards/access-token.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
+import type { AuthenticatedUser } from './auth-user';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
@@ -38,24 +42,27 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Logout and invalidate session' })
   @ApiCookieAuth()
-  async logout() {
-    // Logout is handled in auth service
+  @UseGuards(AccessTokenGuard)
+  async logout(@CurrentUser() user: AuthenticatedUser) {
+    await this.authService.logout(user.sessionId ?? '');
   }
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get current user with memberships and active business' })
   @ApiCookieAuth()
-  async getMe() {
-    // Get me is handled in auth service
+  @UseGuards(AccessTokenGuard)
+  async getMe(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getMe(user.userId);
   }
 
   @Patch('password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Change password' })
   @ApiCookieAuth()
-  async changePassword(@Body() dto: ChangePasswordDto) {
-    await this.authService.changePassword('userId', dto);
+  @UseGuards(AccessTokenGuard)
+  async changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
+    await this.authService.changePassword(user.userId, dto);
   }
 
   @Post('forgot-password')

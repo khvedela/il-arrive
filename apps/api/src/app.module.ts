@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { config } from './config';
-import { PrismaService } from './common/prisma.service';
+import { DatabaseModule } from './common/database.module';
 import { RedisService } from './common/redis.service';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -24,6 +24,7 @@ import { NotificationModule } from './modules/notification/notification.module';
         limit: 100,
       },
     ]),
+    DatabaseModule,
     HealthModule,
     AuthModule,
     BusinessModule,
@@ -32,6 +33,6 @@ import { NotificationModule } from './modules/notification/notification.module';
     TrackingModule,
     NotificationModule,
   ],
-  providers: [PrismaService, RedisService],
+  providers: [RedisService],
 })
 export class AppModule {}

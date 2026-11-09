@@ -47,7 +47,7 @@ export class InterventionController {
 
   @Get()
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiOperation({ summary: 'List interventions' })
   @ApiQuery({ name: 'status', required: false, enum: ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'] })
   @ApiQuery({ name: 'technicianId', required: false })
@@ -78,7 +78,7 @@ export class InterventionController {
 
   @Get('today')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiOperation({ summary: 'Get today interventions grouped by status' })
   async getTodayInterventions(@CurrentUser() user: AuthenticatedUser): Promise<unknown> {
     const businessId = user.activeBusinessId;
@@ -87,7 +87,7 @@ export class InterventionController {
 
   @Get(':id')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get intervention by ID with timeline' })
   async getIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<unknown> {
@@ -183,7 +183,7 @@ export class TechnicianInterventionController {
 
   @Get()
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiOperation({ summary: 'Get technician\'s own interventions' })
   @ApiQuery({ name: 'status', required: false, enum: ['SCHEDULED', 'EN_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'] })
   async getMyInterventions(
@@ -197,7 +197,7 @@ export class TechnicianInterventionController {
 
   @Get(':id')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @ApiOperation({ summary: 'Get technician\'s intervention by ID' })
   async getMyIntervention(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string): Promise<unknown> {
@@ -208,7 +208,7 @@ export class TechnicianInterventionController {
 
   @Patch(':id/en-route')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as en route' })
@@ -220,7 +220,7 @@ export class TechnicianInterventionController {
 
   @Patch(':id/stop')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Stop route for intervention' })
@@ -232,7 +232,7 @@ export class TechnicianInterventionController {
 
   @Patch(':id/arrived')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as arrived' })
@@ -244,7 +244,7 @@ export class TechnicianInterventionController {
 
   @Patch(':id/complete')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Mark intervention as completed' })
@@ -256,7 +256,7 @@ export class TechnicianInterventionController {
 
   @Patch(':id/delay')
   @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(RoleType.TECHNICIAN)
+  @Roles(RoleType.OWNER, RoleType.DISPATCHER, RoleType.TECHNICIAN)
   @ApiParam({ name: 'id', required: true, description: 'Intervention ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Report delay for intervention' })
