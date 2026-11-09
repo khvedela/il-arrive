@@ -5,6 +5,7 @@ module.exports = {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/integration/setup-env.ts'],
   roots: ['<rootDir>'],
   moduleNameMapper: {
     '^@il-arrive/contracts$': '<rootDir>/../../libs/contracts/src/index.ts',
