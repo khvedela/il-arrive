@@ -22,6 +22,11 @@ import type {
   RequestPasswordResetDto,
   ResetPasswordDto,
   InviteMemberDto,
+  MeUser,
+  MeMembership,
+  MeResponse,
+  LoginResponse,
+  RegisterResponse,
 } from './auth-dto';
 import type { PublicTrackingProjection } from './public-tracking';
 import type { SSEEvent, SSEEventType, SSEEventData } from './sse-event';
@@ -53,6 +58,11 @@ export type {
   RequestPasswordResetDto,
   ResetPasswordDto,
   InviteMemberDto,
+  MeUser,
+  MeMembership,
+  MeResponse,
+  LoginResponse,
+  RegisterResponse,
   NotificationDto,
   // Projections
   PublicTrackingProjection,
