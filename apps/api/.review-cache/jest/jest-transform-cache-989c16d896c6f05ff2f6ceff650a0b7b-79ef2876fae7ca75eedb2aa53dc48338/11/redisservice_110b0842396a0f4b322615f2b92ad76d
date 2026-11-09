@@ -1,0 +1,34 @@
+51577f2d8a38ff7fb55b5978dc7141d7
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RedisService = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const ioredis_1 = require("ioredis");
+let RedisService = class RedisService extends ioredis_1.Redis {
+    constructor(configService) {
+        super({
+            host: configService.get('REDIS_HOST', 'localhost'),
+            port: configService.get('REDIS_PORT', 6379),
+            password: configService.get('REDIS_PASSWORD', '') || undefined,
+        });
+    }
+    async onModuleDestroy() {
+        await this.quit();
+    }
+};
+exports.RedisService = RedisService;
+exports.RedisService = RedisService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [config_1.ConfigService])
+], RedisService);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2todmVkZWxhL0Rlc2t0b3AvaWwtYXJyaXZlLy5wYXBlcmNsaXAvd29ya3RyZWVzL1NMQS0xMC1pbC1hcnJpdmUtYXBpLXNtcy1ub3RpZmljYXRpb25zLXByb3ZpZGVyLWludGVyZmFjZS1xdWV1ZS10aHJlc2hvbGRzLWRlZHVwLXF1b3Rhcy1kZWxpdmVyeS10cmFja2luZy9hcHBzL2FwaS9zcmMvY29tbW9uL3JlZGlzLnNlcnZpY2UudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7O0FBQUEsMkNBQTZEO0FBQzdELDJDQUErQztBQUMvQyxxQ0FBZ0M7QUFHekIsSUFBTSxZQUFZLEdBQWxCLE1BQU0sWUFBYSxTQUFRLGVBQUs7SUFDckMsWUFBWSxhQUE0QjtRQUN0QyxLQUFLLENBQUM7WUFDSixJQUFJLEVBQUUsYUFBYSxDQUFDLEdBQUcsQ0FBQyxZQUFZLEVBQUUsV0FBVyxDQUFDO1lBQ2xELElBQUksRUFBRSxhQUFhLENBQUMsR0FBRyxDQUFDLFlBQVksRUFBRSxJQUFJLENBQUM7WUFDM0MsUUFBUSxFQUFFLGFBQWEsQ0FBQyxHQUFHLENBQUMsZ0JBQWdCLEVBQUUsRUFBRSxDQUFDLElBQUksU0FBUztTQUMvRCxDQUFDLENBQUM7SUFDTCxDQUFDO0lBRUQsS0FBSyxDQUFDLGVBQWU7UUFDbkIsTUFBTSxJQUFJLENBQUMsSUFBSSxFQUFFLENBQUM7SUFDcEIsQ0FBQztDQUNGLENBQUE7QUFaWSxvQ0FBWTt1QkFBWixZQUFZO0lBRHhCLElBQUEsbUJBQVUsR0FBRTtxQ0FFZ0Isc0JBQWE7R0FEN0IsWUFBWSxDQVl4QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMva2h2ZWRlbGEvRGVza3RvcC9pbC1hcnJpdmUvLnBhcGVyY2xpcC93b3JrdHJlZXMvU0xBLTEwLWlsLWFycml2ZS1hcGktc21zLW5vdGlmaWNhdGlvbnMtcHJvdmlkZXItaW50ZXJmYWNlLXF1ZXVlLXRocmVzaG9sZHMtZGVkdXAtcXVvdGFzLWRlbGl2ZXJ5LXRyYWNraW5nL2FwcHMvYXBpL3NyYy9jb21tb24vcmVkaXMuc2VydmljZS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJbmplY3RhYmxlLCBPbk1vZHVsZURlc3Ryb3kgfSBmcm9tICdAbmVzdGpzL2NvbW1vbic7XG5pbXBvcnQgeyBDb25maWdTZXJ2aWNlIH0gZnJvbSAnQG5lc3Rqcy9jb25maWcnO1xuaW1wb3J0IHsgUmVkaXMgfSBmcm9tICdpb3JlZGlzJztcblxuQEluamVjdGFibGUoKVxuZXhwb3J0IGNsYXNzIFJlZGlzU2VydmljZSBleHRlbmRzIFJlZGlzIGltcGxlbWVudHMgT25Nb2R1bGVEZXN0cm95IHtcbiAgY29uc3RydWN0b3IoY29uZmlnU2VydmljZTogQ29uZmlnU2VydmljZSkge1xuICAgIHN1cGVyKHtcbiAgICAgIGhvc3Q6IGNvbmZpZ1NlcnZpY2UuZ2V0KCdSRURJU19IT1NUJywgJ2xvY2FsaG9zdCcpLFxuICAgICAgcG9ydDogY29uZmlnU2VydmljZS5nZXQoJ1JFRElTX1BPUlQnLCA2Mzc5KSxcbiAgICAgIHBhc3N3b3JkOiBjb25maWdTZXJ2aWNlLmdldCgnUkVESVNfUEFTU1dPUkQnLCAnJykgfHwgdW5kZWZpbmVkLFxuICAgIH0pO1xuICB9XG5cbiAgYXN5bmMgb25Nb2R1bGVEZXN0cm95KCkge1xuICAgIGF3YWl0IHRoaXMucXVpdCgpO1xuICB9XG59XG4iXSwidmVyc2lvbiI6M30=

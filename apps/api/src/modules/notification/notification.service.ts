@@ -1,17 +1,17 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { GoneException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { NotificationKind, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { SMS_PROVIDER, SmsProvider } from './sms-provider';
-import { evaluateSmsPolicy, resolvePrefs, SkipReason, startOfMonthUtc } from './policy/sms-policy';
+import { DEFAULT_PREFS, evaluateSmsPolicy, resolvePrefs, SkipReason, startOfMonthUtc } from './policy/sms-policy';
 import { renderSms } from './sms-templates';
 import { parsePhone } from './phone';
-import { TrackingLinkService } from './tracking-link.service';
+import { TrackingLinkExpiredError, TrackingLinkService } from './tracking-link.service';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 export const SEND_ATTEMPTS = 3;
-export const BACKOFF_MS = 5000;
+export const BACKOFF_MS = Number(process.env.NOTIFICATION_BACKOFF_MS ?? 5000);
 
 export interface RequestNotificationInput {
   interventionId: string;
@@ -74,10 +74,11 @@ export class NotificationService {
       });
       const history = await tx.notification.findMany({
         where: { interventionId, status: { not: 'FAILED' } },
-        select: { createdAt: true },
+        select: { sentAt: true },
       });
+      // Spacing is measured from the actual send time, not from queueing.
       const lastSentAt = history.reduce<Date | null>(
-        (acc, n) => (!acc || n.createdAt > acc ? n.createdAt : acc),
+        (acc, n) => (n.sentAt && (!acc || n.sentAt > acc) ? n.sentAt : acc),
         null,
       );
       const decision = evaluateSmsPolicy({
@@ -108,7 +109,13 @@ export class NotificationService {
       const phone = parsePhone(full.customer.phone);
       if (!phone) return failed('invalid_phone');
 
-      const trackingLink = await this.links.issue(full, now, tx);
+      let trackingLink: string;
+      try {
+        trackingLink = await this.links.issue(full, now, tx);
+      } catch (e) {
+        if (e instanceof TrackingLinkExpiredError) return failed('tracking_link_expired');
+        throw e;
+      }
       const { body, warning } = renderSms(kind, {
         businessName: full.business.name,
         trackingLink,
@@ -120,12 +127,17 @@ export class NotificationService {
       if (warning) this.logger.warn(`SMS ${idempotencyKey} exceeds one segment`);
 
       const n = await tx.notification.create({
-        data: { ...base, to: phone.e164, body, provider: this.provider.name },
+        data: {
+          ...base,
+          to: phone.e164,
+          body,
+          provider: this.provider.name,
+          manual: !!input.manual,
+          etaAt: input.newEta ?? null,
+          quotaPeriodStart: full.business.smsPeriodStart,
+        },
       });
       await tx.business.update({ where: { id: full.businessId }, data: { smsUsedThisPeriod: { increment: 1 } } });
-      if (input.newEta) {
-        await tx.trackingSession.updateMany({ where: { interventionId }, data: { lastNotifiedEtaAt: input.newEta } });
-      }
       return { result: { status: 'queued', notificationId: n.id } as RequestResult, requeue: n.id };
     });
 
@@ -164,45 +176,108 @@ export class NotificationService {
     return n;
   }
 
-  /** Called by the queue processor. Throws on failure so BullMQ retries. */
-  async deliver(notificationId: string, finalAttempt: boolean): Promise<void> {
-    const n = await this.prisma.notification.findUnique({
-      where: { id: notificationId },
-      include: { intervention: { select: { status: true, businessId: true } } },
-    });
-    if (!n || n.status !== 'QUEUED') return;
+  /**
+   * Called by the queue processor. Eligibility (terminal state, ETA delta/spacing)
+   * is re-checked and the send recorded under the same Business row lock, so
+   * delayed jobs cannot send back-to-back. Throws on send failure so BullMQ retries.
+   */
+  async deliver(notificationId: string, finalAttempt: boolean, now = new Date()): Promise<void> {
+    const outcome = await this.prisma.$transaction(
+      async (tx): Promise<{ error: string } | null> => {
+        const n = await tx.notification.findUnique({
+          where: { id: notificationId },
+          include: { intervention: { select: { status: true, businessId: true } } },
+        });
+        if (!n || n.status !== 'QUEUED') return null;
+        await tx.$queryRaw`SELECT id FROM "Business" WHERE id = ${n.intervention.businessId} FOR UPDATE`;
+        const locked = await tx.notification.findUnique({ where: { id: n.id }, select: { status: true } });
+        if (locked?.status !== 'QUEUED') return null;
 
-    // Re-check eligibility right before sending (queue delay / retry backoff).
-    const st = n.intervention.status;
-    if (st === 'COMPLETED' || (st === 'CANCELLED' && n.kind !== 'CANCELLED')) {
-      await this.prisma.notification.update({
+        const session = await tx.trackingSession.findFirst({ where: { interventionId: n.interventionId } });
+        const sent = await tx.notification.findMany({
+          where: { interventionId: n.interventionId, id: { not: n.id }, status: { in: ['SENT', 'DELIVERED'] } },
+          select: { sentAt: true },
+        });
+        const lastSentAt = sent.reduce<Date | null>(
+          (acc, x) => (x.sentAt && (!acc || x.sentAt > acc) ? x.sentAt : acc),
+          null,
+        );
+        const decision = evaluateSmsPolicy({
+          kind: n.kind,
+          status: n.intervention.status,
+          prefs: DEFAULT_PREFS,
+          sentCount: 0, // cap and quota were enforced when the slot was reserved
+          lastSentAt,
+          lastNotifiedEta: session?.lastNotifiedEtaAt ?? null,
+          newEta: n.etaAt,
+          quotaRemaining: 1,
+          now,
+          manual: n.manual || n.kind !== 'ETA_UPDATE',
+        });
+        // Terminal guard always applies; evaluateSmsPolicy checks it before the manual bypass.
+        if (!decision.allow) {
+          await this.failReserved(tx, n, decision.reason);
+          return null;
+        }
+        try {
+          const { providerMessageId } = await this.provider.send(n.to, n.body, n.idempotencyKey);
+          await tx.notification.update({
+            where: { id: n.id },
+            data: {
+              status: 'SENT',
+              providerMessageId,
+              provider: this.provider.name,
+              sentAt: now,
+              attempts: { increment: 1 },
+              error: null,
+            },
+          });
+          if (n.etaAt) {
+            await tx.trackingSession.updateMany({
+              where: { interventionId: n.interventionId },
+              data: { lastNotifiedEtaAt: n.etaAt },
+            });
+          }
+          return null;
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : String(e) };
+        }
+      },
+      { timeout: 30_000 },
+    );
+    if (!outcome) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      const n = await tx.notification.findUnique({ where: { id: notificationId } });
+      if (!n || n.status !== 'QUEUED') return;
+      await tx.notification.update({
         where: { id: n.id },
-        data: { status: 'FAILED', error: 'intervention_terminal' },
+        data: { attempts: { increment: 1 }, error: outcome.error },
       });
-      await this.refundQuota(n.intervention.businessId);
-      return;
-    }
-    try {
-      const { providerMessageId } = await this.provider.send(n.to, n.body, n.idempotencyKey);
-      await this.prisma.notification.update({
-        where: { id: n.id },
-        data: {
-          status: 'SENT',
-          providerMessageId,
-          provider: this.provider.name,
-          attempts: { increment: 1 },
-          error: null,
-        },
-      });
-    } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
-      await this.prisma.notification.update({
-        where: { id: n.id },
-        data: { attempts: { increment: 1 }, error, ...(finalAttempt ? { status: 'FAILED' } : {}) },
-      });
-      if (finalAttempt) await this.refundQuota(n.intervention.businessId);
-      throw e;
-    }
+      if (finalAttempt) await this.failReserved(tx, n, outcome.error);
+    });
+    throw new Error(outcome.error);
+  }
+
+  /** QUEUED → FAILED and quota refund in one transaction; the status guard makes it idempotent. */
+  private async failReserved(
+    tx: Prisma.TransactionClient,
+    n: { id: string; quotaPeriodStart: Date | null; intervention?: { businessId: string } | null; interventionId: string },
+    reason: string,
+  ) {
+    const res = await tx.notification.updateMany({
+      where: { id: n.id, status: 'QUEUED' },
+      data: { status: 'FAILED', error: reason },
+    });
+    if (res.count !== 1 || !n.quotaPeriodStart) return;
+    const iv =
+      n.intervention ??
+      (await tx.intervention.findUniqueOrThrow({ where: { id: n.interventionId }, select: { businessId: true } }));
+    // Only refund the period the slot was reserved in.
+    await tx.business.updateMany({
+      where: { id: iv.businessId, smsPeriodStart: n.quotaPeriodStart, smsUsedThisPeriod: { gt: 0 } },
+      data: { smsUsedThisPeriod: { decrement: 1 } },
+    });
   }
 
   /** Entry point for a real provider's delivery-status callback (future adapter). */
@@ -253,7 +328,13 @@ export class NotificationService {
       include: { business: true, customer: true, technician: { include: { user: true } }, trackingSessions: true },
     });
     if (!iv) throw new NotFoundException('intervention_not_found');
-    const link = await this.links.issue(iv);
+    let link: string;
+    try {
+      link = await this.links.issue(iv);
+    } catch (e) {
+      if (e instanceof TrackingLinkExpiredError) throw new GoneException('tracking_link_expired');
+      throw e;
+    }
     const { body } = renderSms(kind, {
       businessName: iv.business.name,
       trackingLink: link,
@@ -268,12 +349,5 @@ export class NotificationService {
       link,
       smsUri: `sms:${phone?.e164 ?? ''}?body=${encodeURIComponent(body)}`,
     };
-  }
-
-  private async refundQuota(businessId: string) {
-    await this.prisma.business.updateMany({
-      where: { id: businessId, smsUsedThisPeriod: { gt: 0 } },
-      data: { smsUsedThisPeriod: { decrement: 1 } },
-    });
   }
 }

@@ -1,0 +1,32 @@
+479a9a1eee2fd275120f7d58365cd138
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var ConsoleSmsProvider_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ConsoleSmsProvider = void 0;
+const common_1 = require("@nestjs/common");
+const node_crypto_1 = require("node:crypto");
+/**
+ * Dev provider: logs the message. The outbox is the `Notification` table
+ * (provider = 'console'), so the API process can show what the worker "sent"
+ * at GET /dev/sms.
+ */
+let ConsoleSmsProvider = ConsoleSmsProvider_1 = class ConsoleSmsProvider {
+    name = 'console';
+    logger = new common_1.Logger(ConsoleSmsProvider_1.name);
+    async send(to, body, idempotencyKey) {
+        this.logger.log(`SMS to ${to}: ${body}`);
+        const id = (0, node_crypto_1.createHash)('sha1').update(idempotencyKey).digest('hex').slice(0, 16);
+        return { providerMessageId: `console-${id}` };
+    }
+};
+exports.ConsoleSmsProvider = ConsoleSmsProvider;
+exports.ConsoleSmsProvider = ConsoleSmsProvider = ConsoleSmsProvider_1 = __decorate([
+    (0, common_1.Injectable)()
+], ConsoleSmsProvider);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2todmVkZWxhL0Rlc2t0b3AvaWwtYXJyaXZlLy5wYXBlcmNsaXAvd29ya3RyZWVzL1NMQS0xMC1pbC1hcnJpdmUtYXBpLXNtcy1ub3RpZmljYXRpb25zLXByb3ZpZGVyLWludGVyZmFjZS1xdWV1ZS10aHJlc2hvbGRzLWRlZHVwLXF1b3Rhcy1kZWxpdmVyeS10cmFja2luZy9hcHBzL2FwaS9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb24vcHJvdmlkZXJzL2NvbnNvbGUtc21zLnByb3ZpZGVyLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7QUFBQSwyQ0FBb0Q7QUFDcEQsNkNBQXlDO0FBR3pDOzs7O0dBSUc7QUFFSSxJQUFNLGtCQUFrQiwwQkFBeEIsTUFBTSxrQkFBa0I7SUFDcEIsSUFBSSxHQUFHLFNBQVMsQ0FBQztJQUNULE1BQU0sR0FBRyxJQUFJLGVBQU0sQ0FBQyxvQkFBa0IsQ0FBQyxJQUFJLENBQUMsQ0FBQztJQUU5RCxLQUFLLENBQUMsSUFBSSxDQUFDLEVBQVUsRUFBRSxJQUFZLEVBQUUsY0FBc0I7UUFDekQsSUFBSSxDQUFDLE1BQU0sQ0FBQyxHQUFHLENBQUMsVUFBVSxFQUFFLEtBQUssSUFBSSxFQUFFLENBQUMsQ0FBQztRQUN6QyxNQUFNLEVBQUUsR0FBRyxJQUFBLHdCQUFVLEVBQUMsTUFBTSxDQUFDLENBQUMsTUFBTSxDQUFDLGNBQWMsQ0FBQyxDQUFDLE1BQU0sQ0FBQyxLQUFLLENBQUMsQ0FBQyxLQUFLLENBQUMsQ0FBQyxFQUFFLEVBQUUsQ0FBQyxDQUFDO1FBQ2hGLE9BQU8sRUFBRSxpQkFBaUIsRUFBRSxXQUFXLEVBQUUsRUFBRSxFQUFFLENBQUM7SUFDaEQsQ0FBQztDQUNGLENBQUE7QUFUWSxnREFBa0I7NkJBQWxCLGtCQUFrQjtJQUQ5QixJQUFBLG1CQUFVLEdBQUU7R0FDQSxrQkFBa0IsQ0FTOUIiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2todmVkZWxhL0Rlc2t0b3AvaWwtYXJyaXZlLy5wYXBlcmNsaXAvd29ya3RyZWVzL1NMQS0xMC1pbC1hcnJpdmUtYXBpLXNtcy1ub3RpZmljYXRpb25zLXByb3ZpZGVyLWludGVyZmFjZS1xdWV1ZS10aHJlc2hvbGRzLWRlZHVwLXF1b3Rhcy1kZWxpdmVyeS10cmFja2luZy9hcHBzL2FwaS9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb24vcHJvdmlkZXJzL2NvbnNvbGUtc21zLnByb3ZpZGVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEluamVjdGFibGUsIExvZ2dlciB9IGZyb20gJ0BuZXN0anMvY29tbW9uJztcbmltcG9ydCB7IGNyZWF0ZUhhc2ggfSBmcm9tICdub2RlOmNyeXB0byc7XG5pbXBvcnQgeyBTbXNQcm92aWRlciwgU21zU2VuZFJlc3VsdCB9IGZyb20gJy4uL3Ntcy1wcm92aWRlcic7XG5cbi8qKlxuICogRGV2IHByb3ZpZGVyOiBsb2dzIHRoZSBtZXNzYWdlLiBUaGUgb3V0Ym94IGlzIHRoZSBgTm90aWZpY2F0aW9uYCB0YWJsZVxuICogKHByb3ZpZGVyID0gJ2NvbnNvbGUnKSwgc28gdGhlIEFQSSBwcm9jZXNzIGNhbiBzaG93IHdoYXQgdGhlIHdvcmtlciBcInNlbnRcIlxuICogYXQgR0VUIC9kZXYvc21zLlxuICovXG5ASW5qZWN0YWJsZSgpXG5leHBvcnQgY2xhc3MgQ29uc29sZVNtc1Byb3ZpZGVyIGltcGxlbWVudHMgU21zUHJvdmlkZXIge1xuICByZWFkb25seSBuYW1lID0gJ2NvbnNvbGUnO1xuICBwcml2YXRlIHJlYWRvbmx5IGxvZ2dlciA9IG5ldyBMb2dnZXIoQ29uc29sZVNtc1Byb3ZpZGVyLm5hbWUpO1xuXG4gIGFzeW5jIHNlbmQodG86IHN0cmluZywgYm9keTogc3RyaW5nLCBpZGVtcG90ZW5jeUtleTogc3RyaW5nKTogUHJvbWlzZTxTbXNTZW5kUmVzdWx0PiB7XG4gICAgdGhpcy5sb2dnZXIubG9nKGBTTVMgdG8gJHt0b306ICR7Ym9keX1gKTtcbiAgICBjb25zdCBpZCA9IGNyZWF0ZUhhc2goJ3NoYTEnKS51cGRhdGUoaWRlbXBvdGVuY3lLZXkpLmRpZ2VzdCgnaGV4Jykuc2xpY2UoMCwgMTYpO1xuICAgIHJldHVybiB7IHByb3ZpZGVyTWVzc2FnZUlkOiBgY29uc29sZS0ke2lkfWAgfTtcbiAgfVxufVxuIl0sInZlcnNpb24iOjN9

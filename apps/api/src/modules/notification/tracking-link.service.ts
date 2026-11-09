@@ -6,6 +6,12 @@ import { PrismaService } from '../../common/prisma.service';
 
 const POST_WINDOW_MS = 48 * 3600 * 1000;
 
+export class TrackingLinkExpiredError extends Error {
+  constructor() {
+    super('tracking_link_expired');
+  }
+}
+
 /**
  * Issues a customer-facing tracking URL (only the SHA-256 token hash is stored).
  * Expiry follows the contract: windowEnd + 48h. Regeneration/revocation of
@@ -24,7 +30,9 @@ export class TrackingLinkService {
     db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string> {
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(Math.max(intervention.windowEnd.getTime(), now.getTime()) + POST_WINDOW_MS);
+    // Hard contract expiry: windowEnd + 48h; never extended for past interventions.
+    const expiresAt = new Date(intervention.windowEnd.getTime() + POST_WINDOW_MS);
+    if (expiresAt <= now) throw new TrackingLinkExpiredError();
     await db.trackingLink.create({
       data: {
         interventionId: intervention.id,

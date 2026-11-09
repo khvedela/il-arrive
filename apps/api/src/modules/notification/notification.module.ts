@@ -33,5 +33,6 @@ export class NotificationModule {}
 @Module({
   imports: [ConfigModule, BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE })],
   providers: [...shared, NotificationProcessor],
+  exports: [NotificationService, NotificationEventsService],
 })
 export class NotificationWorkerModule {}

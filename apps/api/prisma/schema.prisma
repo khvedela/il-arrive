@@ -216,6 +216,10 @@ model Notification {
   status          NotificationStatus @default(QUEUED)
   error           String?
   attempts        Int                @default(0)
+  manual          Boolean            @default(false)
+  etaAt           DateTime?
+  sentAt          DateTime?
+  quotaPeriodStart DateTime?
 
   intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
 
