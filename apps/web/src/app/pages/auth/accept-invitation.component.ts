@@ -91,7 +91,7 @@ export class AcceptInvitationComponent {
     this.authService.acceptInvitation({
       token: this.token, firstName: v.firstName!, lastName: v.lastName!, password: v.password!, phone: v.phone || undefined,
     }).subscribe({
-      next: () => { this.loading.set(false); this.success.set(true); setTimeout(() => this.router.navigate(['/app']), 2000); },
+      next: () => { this.loading.set(false); this.success.set(true); setTimeout(() => this.router.navigate([this.authService.homeRoute()]), 2000); },
       error: (err) => { this.loading.set(false); this.generalError.set(err.error?.message || 'Impossible d\'accepter l\'invitation'); },
     });
   }

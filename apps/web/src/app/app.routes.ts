@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, redirectIfAuthedGuard } from './core/auth.guard';
+import { authGuard, notTechnicianGuard, redirectIfAuthedGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   // Auth pages (redirect if already authenticated)
@@ -32,7 +32,7 @@ export const routes: Routes = [
   // Dashboard shell (protected)
   {
     path: 'app',
-    canActivate: [authGuard],
+    canActivate: [authGuard, notTechnicianGuard],
     loadComponent: () => import('./layouts/app-shell.component').then(m => m.AppShellComponent),
     children: [
       {
@@ -69,10 +69,12 @@ export const routes: Routes = [
   },
   {
     path: 'tech',
+    canActivate: [authGuard],
     loadComponent: () => import('./tech/pages/tech-today.component').then(m => m.TechTodayComponent),
   },
   {
     path: 'tech/i/:id',
+    canActivate: [authGuard],
     loadComponent: () => import('./tech/pages/tech-intervention-detail.component').then(m => m.TechInterventionDetailComponent),
   },
 

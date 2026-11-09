@@ -5,6 +5,13 @@ import { mergeMap, tap, finalize } from 'rxjs/operators';
 import { AuthApi } from './auth-api.service';
 import { MeResponse, MeUser, MeMembership, LoginDto, RegisterDto, RequestPasswordResetDto, ResetPasswordDto } from '@il-arrive/contracts';
 
+export type Role = 'OWNER' | 'DISPATCHER' | 'TECHNICIAN';
+
+/** Landing route for a membership role. */
+export function homeRouteFor(role: string | null | undefined): string {
+  return role === 'TECHNICIAN' ? '/tech' : '/app';
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private authApi = inject(AuthApi);
@@ -18,6 +25,7 @@ export class AuthService {
   activeMembership = computed<MeMembership | null>(() => this._me()?.activeMembership ?? null);
   isAuthenticated = computed(() => !!this._me());
   isLoading = computed(() => this._loading());
+  homeRoute = computed(() => homeRouteFor(this._me()?.activeMembership?.role));
 
   onBootstrap = effect(() => {
     const me = this._me();
@@ -39,7 +47,7 @@ export class AuthService {
       mergeMap(() => this.authApi.getMe()),
       tap((me) => {
         this._me.set(me);
-        this.router.navigate(['/app']);
+        this.router.navigate([homeRouteFor(me.activeMembership?.role)]);
       }),
     );
   }
@@ -49,7 +57,7 @@ export class AuthService {
       mergeMap(() => this.authApi.getMe()),
       tap((me) => {
         this._me.set(me);
-        this.router.navigate(['/onboarding']);
+        this.router.navigate([homeRouteFor(me.activeMembership?.role)]);
       }),
     );
   }
@@ -78,7 +86,7 @@ export class AuthService {
       mergeMap(() => this.authApi.getMe()),
       tap((me) => {
         this._me.set(me);
-        this.router.navigate(['/app']);
+        this.router.navigate([homeRouteFor(me.activeMembership?.role)]);
       }),
     );
   }

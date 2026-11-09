@@ -18,6 +18,7 @@ function fakePrisma() {
   };
   const prisma: any = {
     db,
+    business: { findUnique: async () => ({ name: 'Plomberie Dupont' }) },
     user: {
       findUnique: async ({ where }: Row) => db.users.find((u) => u.email === where.email || u.id === where.id) ?? null,
       update: async ({ where, data }: Row) => Object.assign(db.users.find((u) => u.id === where.id)!, data),

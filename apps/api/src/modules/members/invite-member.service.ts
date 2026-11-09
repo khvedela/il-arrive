@@ -44,6 +44,12 @@ export class InviteMemberService {
       throw new Error('Invitation already exists');
     }
 
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true },
+    });
+    const businessName = business?.name ?? process.env.APP_NAME ?? "l'équipe";
+
     const token = generateToken();
     const tokenHash = digestToken(token);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -61,9 +67,9 @@ export class InviteMemberService {
     const inviteLink = `${process.env.FRONTEND_WEB_URL}/accept-invitation/${token}`;
     await this.mailProvider.send({
       to: email,
-      subject: `Invitation pour ${process.env.APP_NAME}`,
-      html: `<p>Bonjour,</p><p>Vous avez été invité à rejoindre ${process.env.APP_NAME}.</p><p><a href="${inviteLink}">Cliquez ici pour accepter l'invitation</a></p><p>Ce lien expirera dans 7 jours.</p>`,
-      text: `Bonjour,\n\nVous avez été invité à rejoindre ${process.env.APP_NAME}.\n\nCliquez sur ce lien pour accepter l'invitation: ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
+      subject: `Invitation pour ${businessName}`,
+      html: `<p>Bonjour,</p><p>Vous avez été invité à rejoindre ${businessName}.</p><p><a href="${inviteLink}">Cliquez ici pour accepter l'invitation</a></p><p>Ce lien expirera dans 7 jours.</p>`,
+      text: `Bonjour,\n\nVous avez été invité à rejoindre ${businessName}.\n\nCliquez sur ce lien pour accepter l'invitation: ${inviteLink}\n\nCe lien expirera dans 7 jours.`,
       idempotencyKey: `invite-${invitation.id}`,
     });
 
