@@ -125,3 +125,54 @@ describe('IaInputComponent', () => {
     expect(nativeInput.nativeElement.disabled).toBe(true);
   });
 });
+
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+
+@Component({
+  standalone: true,
+  imports: [IaInputComponent, ReactiveFormsModule],
+  template: `<form [formGroup]="form"><ia-input label="Email" formControlName="email" /></form>`,
+})
+class FormHostComponent {
+  form = new FormGroup({ email: new FormControl('', { nonNullable: true }) });
+}
+
+describe('IaInputComponent as ControlValueAccessor', () => {
+  let fixture: ComponentFixture<FormHostComponent>;
+  let form: FormGroup;
+  const nativeInput = () => fixture.debugElement.query(By.css('input')).nativeElement as HTMLInputElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [FormHostComponent] }).compileComponents();
+    fixture = TestBed.createComponent(FormHostComponent);
+    form = fixture.componentInstance.form;
+    fixture.detectChanges();
+  });
+
+  it('typing updates the control', () => {
+    nativeInput().value = 'a@b.co';
+    nativeInput().dispatchEvent(new Event('input'));
+    expect(form.value.email).toBe('a@b.co');
+  });
+
+  it('setValue updates the DOM', () => {
+    form.get('email')!.setValue('x@y.fr');
+    fixture.detectChanges();
+    expect(nativeInput().value).toBe('x@y.fr');
+  });
+
+  it('blur marks the control touched', () => {
+    expect(form.get('email')!.touched).toBe(false);
+    nativeInput().dispatchEvent(new Event('blur'));
+    expect(form.get('email')!.touched).toBe(true);
+  });
+
+  it('disable/enable on the control toggles the input', () => {
+    form.get('email')!.disable();
+    fixture.detectChanges();
+    expect(nativeInput().disabled).toBe(true);
+    form.get('email')!.enable();
+    fixture.detectChanges();
+    expect(nativeInput().disabled).toBe(false);
+  });
+});

@@ -1,8 +1,10 @@
-import { Component, input, model, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, model, computed, signal, forwardRef, ChangeDetectionStrategy } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 @Component({
   selector: 'ia-input',
   standalone: true,
+  providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => IaInputComponent), multi: true }],
   template: `
     <div class="ia-input" [class]="hostClasses()">
       @if (label()) {
@@ -12,8 +14,8 @@ import { Component, input, model, computed, ChangeDetectionStrategy } from '@ang
         @if (prefix()) {
           <span class="ia-input__prefix">{{ prefix() }}</span>
         }
-        <input #inputEl [id]="inputId" [type]="type()" [placeholder]="placeholder()"
-               [disabled]="disabled()" [required]="required()"
+        <input #inputEl [id]="inputId" [type]="type()" [value]="value()" [placeholder]="placeholder()"
+               [disabled]="isDisabled()" [required]="required()"
                [attr.aria-invalid]="hasError() || null"
                [attr.aria-describedby]="describedbyIds()"
                (input)="onInput($event)" (blur)="onBlur()" />
@@ -71,7 +73,7 @@ import { Component, input, model, computed, ChangeDetectionStrategy } from '@ang
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class IaInputComponent {
+export class IaInputComponent implements ControlValueAccessor {
   label = input<string>('');
   placeholder = input<string>('');
   type = input<string>('text');
@@ -83,6 +85,12 @@ export class IaInputComponent {
   suffix = input<string | null>(null);
   maxLength = input<number | null>(null);
   value = model<string>('');
+
+  private formDisabled = signal(false);
+  protected isDisabled = computed(() => this.disabled() || this.formDisabled());
+
+  private onChange: (value: string) => void = () => {};
+  private onTouched: () => void = () => {};
 
   inputId = 'ia-input-' + Math.random().toString(36).slice(2, 9);
 
@@ -100,13 +108,27 @@ export class IaInputComponent {
   protected hostClasses = computed(() => {
     let cls = '';
     if (this.hasError()) cls += ' ia-input--error';
-    if (this.disabled()) cls += ' ia-input--disabled';
+    if (this.isDisabled()) cls += ' ia-input--disabled';
     return cls;
   });
 
   protected onInput = (event: Event): void => {
     const target = event.target as HTMLInputElement;
     this.value.set(target.value);
+    this.onChange(target.value);
   };
-  protected onBlur = (): void => {}
+  protected onBlur = (): void => this.onTouched();
+
+  writeValue(value: string | null): void {
+    this.value.set(value ?? '');
+  }
+  registerOnChange(fn: (value: string) => void): void {
+    this.onChange = fn;
+  }
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+  setDisabledState(isDisabled: boolean): void {
+    this.formDisabled.set(isDisabled);
+  }
 }
