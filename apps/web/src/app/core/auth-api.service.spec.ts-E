@@ -1,0 +1,95 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { AuthApi, AcceptInvitationResponse } from './auth-api.service';
+import { LoginDto, RegisterDto, MeResponse, LoginResponse, RegisterResponse } from '@il-arrive/contracts';
+
+const API_URL = '/api';
+
+const mockMe: MeResponse = {
+  user: { id: 'u1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: '0612345678', avatarUrl: null },
+  memberships: [{
+    id: 'm1', businessId: 'b1', name: 'Test Business', slug: 'test-business',
+    logoUrl: null, phone: '0123456789', brandColor: null, plan: 'trial',
+    role: 'OWNER', isTechnician: true, onboardingCompleted: false,
+  }],
+  activeBusinessId: 'b1',
+  activeMembership: {
+    id: 'm1', businessId: 'b1', name: 'Test Business', slug: 'test-business',
+    logoUrl: null, phone: '0123456789', brandColor: null, plan: 'trial',
+    role: 'OWNER', isTechnician: true, onboardingCompleted: false,
+  },
+};
+
+describe('AuthApi', () => {
+  let api: AuthApi;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [AuthApi, provideHttpClient(), provideHttpClientTesting()],
+    });
+    api = TestBed.inject(AuthApi);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('should login and return response', () => {
+    const dto: LoginDto = { email: 'test@test.com', password: 'password' };
+    const mockLogin: LoginResponse = {
+      user: mockMe.user,
+      memberships: mockMe.memberships,
+      activeBusinessId: 'b1',
+    };
+
+    api.login(dto).subscribe((res) => {
+      expect(res).toEqual(mockLogin);
+    });
+
+    const req = httpMock.expectOne(`${API_URL}/auth/login`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(dto);
+    expect(req.request.withCredentials).toBe(true);
+    req.flush(mockLogin);
+  });
+
+  it('should register and return response', () => {
+    const dto: RegisterDto = { email: 'test@test.com', password: 'password', firstName: 'Test', lastName: 'User', businessName: 'Test Business', phone: '0612345678' };
+    const mockRegister: RegisterResponse = {
+      user: mockMe.user,
+      memberships: mockMe.memberships,
+      activeBusinessId: 'b1',
+    };
+
+    api.register(dto).subscribe((res) => {
+      expect(res).toEqual(mockRegister);
+    });
+
+    const req = httpMock.expectOne(`${API_URL}/auth/register`);
+    expect(req.request.method).toBe('POST');
+    req.flush(mockRegister);
+  });
+
+  it('should get me', () => {
+    api.getMe().subscribe((res) => {
+      expect(res).toEqual(mockMe);
+    });
+
+    const req = httpMock.expectOne(`${API_URL}/auth/me`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockMe);
+  });
+
+  it('should logout', () => {
+    api.logout().subscribe((res) => {
+      expect(res).toBeUndefined();
+    });
+
+    const req = httpMock.expectOne(`${API_URL}/auth/logout`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+  });
+});

@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { config } from '../../config';
+import { NotificationWorkerModule } from '../notification/notification.module';
+import { TrackingWorkerModule } from '../tracking/tracking.module';
+import { DatabaseModule } from '../../common/database.module';
 
 @Module({
   imports: [
-    ConfigModule,
+    ConfigModule.forRoot({ isGlobal: true, ...config }),
+    DatabaseModule,
+    NotificationWorkerModule,
+    TrackingWorkerModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

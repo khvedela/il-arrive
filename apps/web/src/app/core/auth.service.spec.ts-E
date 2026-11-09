@@ -1,0 +1,112 @@
+import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { AuthService } from './auth.service';
+import { AuthApi, AcceptInvitationResponse } from './auth-api.service';
+import { MeResponse, MeUser, MeMembership } from '@il-arrive/contracts';
+
+const mockMe: MeResponse = {
+  user: { id: 'u1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: '0612345678', avatarUrl: null },
+  memberships: [{
+    id: 'm1', businessId: 'b1', name: 'Test Business', slug: 'test-business',
+    logoUrl: null, phone: '0123456789', brandColor: null, plan: 'trial',
+    role: 'OWNER', isTechnician: true, onboardingCompleted: false,
+  }],
+  activeBusinessId: 'b1',
+  activeMembership: {
+    id: 'm1', businessId: 'b1', name: 'Test Business', slug: 'test-business',
+    logoUrl: null, phone: '0123456789', brandColor: null, plan: 'trial',
+    role: 'OWNER', isTechnician: true, onboardingCompleted: false,
+  },
+};
+
+class MockAuthApi {
+  login = jasmine.createSpy('login').and.returnValue({ subscribe: () => {} });
+  register = jasmine.createSpy('register').and.returnValue({ subscribe: () => {} });
+  logout = jasmine.createSpy('logout').and.returnValue({ subscribe: () => {} });
+  getMe = jasmine.createSpy('getMe').and.returnValue({ subscribe: () => {} });
+  requestPasswordReset = jasmine.createSpy('requestPasswordReset').and.returnValue({ subscribe: () => {} });
+  resetPassword = jasmine.createSpy('resetPassword').and.returnValue({ subscribe: () => {} });
+  acceptInvitation = jasmine.createSpy('acceptInvitation').and.returnValue({ subscribe: () => {} });
+}
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let router: jasmine.SpyObj<Router>;
+
+  beforeEach(() => {
+    const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+    TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        { provide: AuthApi, useClass: MockAuthApi },
+        { provide: Router, useValue: routerSpy },
+      ],
+    });
+    service = TestBed.inject(AuthService);
+    router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+  });
+
+  it('should start unauthenticated', () => {
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.user()).toBeNull();
+    expect(service.activeMembership()).toBeNull();
+  });
+
+  it('bootstrap should set me on success', () => {
+    const mockApi = TestBed.inject(AuthApi) as MockAuthApi;
+    mockApi.getMe.and.returnValue({
+      subscribe: (observer: any) => { observer.next(mockMe); observer.complete(); },
+    });
+
+    service.bootstrap().subscribe();
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.user()?.email).toBe('test@test.com');
+    expect(service.activeMembership()?.name).toBe('Test Business');
+  });
+
+  it('login should set me and navigate to /app', () => {
+    const mockApi = TestBed.inject(AuthApi) as MockAuthApi;
+    mockApi.login.and.returnValue({
+      subscribe: (observer: any) => { observer.next({}); observer.complete(); },
+    });
+    mockApi.getMe.and.returnValue({
+      subscribe: (observer: any) => { observer.next(mockMe); observer.complete(); },
+    });
+
+    service.login({ email: 'test@test.com', password: 'password' }).subscribe();
+    expect(service.isAuthenticated()).toBe(true);
+    expect(router.navigate).toHaveBeenCalledWith(['/app']);
+  });
+
+  it('register should set me and navigate to /onboarding', () => {
+    const mockApi = TestBed.inject(AuthApi) as MockAuthApi;
+    mockApi.register.and.returnValue({
+      subscribe: (observer: any) => { observer.next({}); observer.complete(); },
+    });
+    mockApi.getMe.and.returnValue({
+      subscribe: (observer: any) => { observer.next(mockMe); observer.complete(); },
+    });
+
+    service.register({ email: 'test@test.com', password: 'password', firstName: 'Test', lastName: 'User', businessName: 'Business', phone: '0612345678' }).subscribe();
+    expect(service.isAuthenticated()).toBe(true);
+    expect(router.navigate).toHaveBeenCalledWith(['/onboarding']);
+  });
+
+  it('logout should clear me and navigate to /login', () => {
+    const mockApi = TestBed.inject(AuthApi) as MockAuthApi;
+    mockApi.getMe.and.returnValue({
+      subscribe: (observer: any) => { observer.next(mockMe); observer.complete(); },
+    });
+    service.bootstrap().subscribe();
+    expect(service.isAuthenticated()).toBe(true);
+
+    mockApi.logout.and.returnValue({
+      subscribe: (observer: any) => { observer.next(undefined); observer.complete(); },
+    });
+    service.logout().subscribe();
+    expect(service.isAuthenticated()).toBe(false);
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+  });
+});

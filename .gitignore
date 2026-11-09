@@ -16,3 +16,9 @@ tsconfig.tsbuildinfo
 
 # Paperclip per-task worktrees
 .paperclip/
+
+# Local verification and Prisma engine caches
+.cache/
+.review-cache/
+test-results/
+playwright-report/

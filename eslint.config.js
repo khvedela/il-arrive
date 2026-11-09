@@ -9,6 +9,7 @@ export default [
   {
     ignores: [
       'node_modules/',
+      '.paperclip/',
       'dist/',
       'build/',
       'apps/web/**/*.ngsummary',

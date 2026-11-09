@@ -1,4 +1,4 @@
-import { Component, input, computed, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, ChangeDetectionStrategy, output } from '@angular/core';
 
 @Component({
   selector: 'ia-card',
@@ -41,7 +41,7 @@ export class IaCardComponent {
   header = input(true);
   footer = input(false);
   clickable = input(false);
-  clicked = new EventEmitter<void>();
+  clicked = output<void>();
 
   protected interactive = computed(() => this.variant() === 'interactive' || this.clickable());
   protected cardClasses = computed(() => {

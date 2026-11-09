@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Notification" ADD COLUMN "manual" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "etaAt" TIMESTAMP(3),
+ADD COLUMN "sentAt" TIMESTAMP(3),
+ADD COLUMN "quotaPeriodStart" TIMESTAMP(3);
