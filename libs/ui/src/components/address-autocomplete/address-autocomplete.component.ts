@@ -27,6 +27,7 @@ import { AddressSuggestion, AddressSearchFn } from './address-autocomplete.types
           [id]="inputId"
           type="text"
           [placeholder]="placeholder()"
+          [value]="value()"
           [disabled]="disabled()"
           autocomplete="off"
           role="combobox"
@@ -52,7 +53,8 @@ import { AddressSuggestion, AddressSearchFn } from './address-autocomplete.types
         <ul [id]="listboxId"
             class="ia-addr__listbox"
             role="listbox"
-            [attr.aria-label]="label()">
+            [attr.aria-label]="label()"
+            (click)="onListboxClick($event)">
           @for (result of searchResults(); track i; let i = $index) {
             <li [id]="optionId(i)"
                 class="ia-addr__option"
