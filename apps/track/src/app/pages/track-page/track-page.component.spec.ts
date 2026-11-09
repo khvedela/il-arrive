@@ -6,7 +6,6 @@ import { of, throwError } from 'rxjs';
 import { TrackPageComponent } from './track-page.component';
 import { TrackingApi } from '../../services/tracking-api.service';
 import { mockFixtures } from '../../data/mock-fixtures';
-import type { PublicTrackingProjection } from '@il-arrive/contracts';
 
 // Helper to create a mock TrackingApi that returns the given fixture
 function mockApi(fixtureKey: string): TrackingApi {

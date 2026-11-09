@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, of, throwError, timer, mergeMap, firstValueFrom } from 'rxjs';
+import { Observable, of, throwError, timer, mergeMap, map } from 'rxjs';
 import type { PublicTrackingProjection } from '@il-arrive/contracts';
+import { normalizeProjection } from './normalize-projection';
 import { mockFixtures, tokenFixtureMap } from '../data/mock-fixtures';
 
 /**
@@ -27,7 +28,9 @@ export class TrackingApi {
     if (this.isMockMode()) {
       return this.mockFetch(token);
     }
-    return this.http.get<PublicTrackingProjection>(`${API_BASE}/${token}`);
+    return this.http
+      .get<PublicTrackingProjection>(`${API_BASE}/${token}`)
+      .pipe(map(normalizeProjection));
   }
 
   /**
@@ -36,7 +39,7 @@ export class TrackingApi {
    */
   subscribeToEvents(token: string): Observable<MessageEvent> {
     if (this.isMockMode()) {
-      return this.mockSubscribe(token);
+      return this.mockSubscribe();
     }
     return this.fetchSSE(`${API_BASE}/${token}/events`);
   }
@@ -65,7 +68,7 @@ export class TrackingApi {
     );
   }
 
-  private mockSubscribe(_token: string): Observable<MessageEvent> {
+  private mockSubscribe(): Observable<MessageEvent> {
     // No mock SSE events by default — tests trigger updates manually
     return new Observable();
   }
@@ -78,9 +81,14 @@ export class TrackingApi {
     return new Observable((observer) => {
       const eventSource = new EventSource(url);
 
-      eventSource.onmessage = (event: MessageEvent) => {
-        observer.next(event);
-      };
+      // The API emits named events: `projection` (full payload) and `session_end`.
+      const emit = (payload: unknown) =>
+        observer.next(new MessageEvent('message', { data: JSON.stringify(payload) }));
+      eventSource.addEventListener('projection', (event) => {
+        const wire = JSON.parse((event as MessageEvent).data) as PublicTrackingProjection;
+        emit({ event: 'projection', data: normalizeProjection(wire) });
+      });
+      eventSource.addEventListener('session_end', () => emit({ event: 'session_end', data: {} }));
 
       eventSource.onerror = (error: Event) => {
         // SSE reconnects automatically; report to observer for refetch

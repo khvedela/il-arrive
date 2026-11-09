@@ -10,7 +10,7 @@ import {
   IaErrorStateComponent,
 } from '@il-arrive/ui';
 import type { TimelineStep, TimelineStepStatus } from '@il-arrive/ui';
-import type { PublicTrackingProjection, SSEEvent, SSEEventType } from '@il-arrive/contracts';
+import type { PublicTrackingProjection, SSEEvent } from '@il-arrive/contracts';
 import { TrackingApi } from '../../services/tracking-api.service';
 
 interface AppState {
@@ -898,12 +898,11 @@ export class TrackPageComponent implements OnInit, OnDestroy {
 
   protected showRescheduledBanner = computed(() => {
     const p = this.projection();
-    return p.status === 'SCHEDULED' && !!(p as any).previousDate;
+    return p.status === 'SCHEDULED' && !!(p as unknown as { previousDate?: string }).previousDate;
   });
 
   protected rescheduledBannerText = computed(() => {
     const p = this.projection();
-    const prevDate = (p as any).previousDate as string;
     return `nouveau créneau : ${this.formatDate(p.interventionDate!)}, ${p.windowStart}–${p.windowEnd}`;
   });
 
@@ -1069,7 +1068,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
         this.state = { ...this.state, projection, loading: false, error: null };
         this.startSSE();
       },
-      error: (err: any) => {
+      error: (err: { status?: number }) => {
         if (err.status === 404 || err.status === 410) {
           // For expired/revoked links, keep loading false with the http status
           this.state = {
@@ -1095,7 +1094,7 @@ export class TrackPageComponent implements OnInit, OnDestroy {
     this.trackingApi.subscribeToEvents(this.token).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
-      next: (event: MessageEvent<any>) => {
+      next: (event: MessageEvent<string>) => {
         const data = JSON.parse(event.data);
         this.handleSSEEvent(data);
       },
@@ -1117,18 +1116,21 @@ export class TrackPageComponent implements OnInit, OnDestroy {
     if (!this.state.projection) return;
     const updated = { ...this.state.projection };
 
-    switch (event.event) {
+    switch (event.event as string) {
+      case 'projection':
+        this.state = { ...this.state, projection: event.data as unknown as PublicTrackingProjection };
+        return;
       case 'status_change':
-        updated.status = (event.data as any).status;
+        updated.status = (event.data as { status: PublicTrackingProjection['status'] }).status;
         break;
       case 'eta_update': {
-        const etaData = event.data as any;
+        const etaData = event.data as unknown as { eta: string; etaComputedAt: string };
         updated.eta = etaData.eta;
         updated.etaComputedAt = etaData.etaComputedAt;
         break;
       }
       case 'location_update': {
-        const locData = event.data as any;
+        const locData = event.data as unknown as { lat: number; lng: number; status: 'FRESH' | 'STALE'; lastFixAt: string };
         updated.location = {
           lat: locData.lat,
           lng: locData.lng,
@@ -1138,14 +1140,16 @@ export class TrackPageComponent implements OnInit, OnDestroy {
         break;
       }
       case 'delay_update': {
-        const delayData = event.data as any;
+        const delayData = event.data as unknown as { delayMinutes: number; delayReason: string };
         updated.delayMinutes = delayData.delayMinutes;
         updated.delayReason = delayData.delayReason;
         break;
       }
       case 'session_end':
-        updated.status = (event.data as any).status;
-        break;
+        // Link expired/revoked or intervention ended: refetch the full projection (may be 410).
+        this.closeEventSource();
+        this.fetchData();
+        return;
     }
 
     this.state = { ...this.state, projection: updated };
@@ -1184,7 +1188,6 @@ export class TrackPageComponent implements OnInit, OnDestroy {
   protected etaInMinutes = computed(() => {
     const p = this.projection();
     if (!p.eta || !p.etaComputedAt) return -1;
-    const etaDate = new Date(p.etaComputedAt);
     // Parse ETA time string into a date
     const etaParts = p.eta.split(':');
     const now = new Date();

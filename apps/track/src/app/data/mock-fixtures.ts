@@ -109,7 +109,7 @@ export const mockFixtures: Record<string, PublicTrackingProjection> = {
     interventionDate: '2026-11-14',
     status: 'SCHEDULED',
     previousDate: '2026-11-12',
-  } as any,
+  } as unknown as PublicTrackingProjection,
 };
 
 /** Token → fixture key mapping for the mock API */
