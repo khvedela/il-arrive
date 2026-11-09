@@ -160,7 +160,7 @@ Until then all development uses the dev adapters; nothing is hardcoded to a prov
 
 ## Customers API (SLA-48)
 
-- `GET/POST /customers` are OWNER/DISPATCHER only and always scoped to the session's active business (`x-business-id` must be a membership, otherwise 401); body/query `businessId` is ignored.
+- `GET/POST /customers` are OWNER/DISPATCHER only and always scoped to the session's active business (`x-business-id` must be a membership, otherwise 401); a body `businessId` is rejected with 400 (`forbidNonWhitelisted`) and a query `businessId` is ignored; the tenant always comes from the session.
 - `POST /customers` is find-or-create by exact E.164 phone **within the business** (201 created / 200 existing, existing row returned unchanged, never overwritten). Same phone in another business is an independent customer.
 - Concurrency: creates take a transaction-scoped Postgres advisory lock keyed on `(businessId, phone)`. No unique index is added, so existing duplicate rows cannot break a migration; if legacy duplicates exist the oldest (`createdAt`, then `id`) is returned. A future unique index `(businessId, phone)` would first need a reviewed, non-destructive merge of duplicates (re-pointing `Intervention.customerId`) — deliberately out of scope here.
 - `name` is trimmed before validation; whitespace-only is 400. `q` must be a single string (repeated `q` is 400).

@@ -43,7 +43,7 @@ describe('SLA-48 customers API: tenant/role boundary and phone dedup (real HTTP 
       ],
     }).compile();
     app = mod.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true })); // same pipe as main.ts
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -105,7 +105,10 @@ describe('SLA-48 customers API: tenant/role boundary and phone dedup (real HTTP 
     it('body/query businessId cannot redirect create or list; rows persist only in the active business', async () => {
       const t = await seed();
       const p = uniquePhone();
-      const created = await as('post', '/customers', t.ownerA).send({ name: 'Mine', phone: p, businessId: t.b.id }).expect(201);
+      // production pipe forbids unknown body fields: injection is rejected and persists nothing
+      await as('post', '/customers', t.ownerA).send({ name: 'Mine', phone: p, businessId: t.b.id }).expect(400);
+      expect(await prisma.customer.count({ where: { businessId: { in: [t.a.id, t.b.id] } } })).toBe(0);
+      const created = await as('post', '/customers', t.ownerA).send({ name: 'Mine', phone: p }).expect(201);
       const row = await prisma.customer.findUniqueOrThrow({ where: { id: created.body.id } });
       expect(row.businessId).toBe(t.a.id);
       expect(await prisma.customer.count({ where: { businessId: t.b.id } })).toBe(0);
