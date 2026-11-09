@@ -156,6 +156,11 @@ export class TechApi {
     const current = this.mockData[idx];
     const newStatus = ACTION_TO_STATUS[action];
     current.status = newStatus;
+    if (newStatus === IS.COMPLETED || newStatus === IS.CANCELLED) {
+      delete current.delayMinutes;
+      delete current.delayReason;
+      delete current.delayEta;
+    }
 
     if (action === 'stop_route' && reason) {
       current.internalNotes = (current.internalNotes ? current.internalNotes + '\n' : '') + '[stop_route] ' + reason;
@@ -177,6 +182,16 @@ export class TechApi {
     current.delayEta = this.formatTime(newEtaMin);
 
     return { intervention: { ...current }, success: true };
+  }
+
+  /** Mock location endpoint: 409 unless the intervention is EN_ROUTE. */
+  readonly sentLocations: Array<{ id: string; lat: number; lng: number; accuracy: number; timestamp: number }> = [];
+
+  async sendLocation(id: string, fix: { lat: number; lng: number; accuracy: number; timestamp: number }): Promise<'ok' | 'conflict'> {
+    const inv = this.mockData.find(i => i.id === id);
+    if (!inv || inv.status !== IS.EN_ROUTE) return 'conflict';
+    this.sentLocations.push({ id, ...fix });
+    return 'ok';
   }
 
   private parseTime(t: string): number {
@@ -223,7 +238,9 @@ export class TechApiService {
 
   performAction(interventionId: string, action: TechAction, reason?: string) {
     const prevState = this.api.getIntervention(interventionId);
-    if (!prevState) throw new Error('Intervention not found');
+    if (!prevState) {
+      return of({ intervention: null as unknown as TechIntervention, success: false, rolledBack: true, optimistic: null, error: new Error('Intervention not found') });
+    }
 
     const optimisticStatus = ACTION_TO_STATUS[action];
     const optimisticState = applyStatus(prevState, optimisticStatus);
@@ -252,7 +269,9 @@ export class TechApiService {
 
   reportDelay(interventionId: string, delayMinutes: number, reason: string) {
     const prevState = this.api.getIntervention(interventionId);
-    if (!prevState) throw new Error('Intervention not found');
+    if (!prevState) {
+      return of({ intervention: null as unknown as TechIntervention, success: false, rolledBack: true, error: new Error('Intervention not found') });
+    }
 
     return defer(() => {
       const result = this.api.reportDelay({
@@ -261,7 +280,7 @@ export class TechApiService {
         delayReason: reason,
       });
       if (!result) throw new Error('Delay report failed');
-      return of(result).pipe(delay(400));
+      return of({ ...result, rolledBack: false }).pipe(delay(400));
     }).pipe(
       catchError(err => {
         return of({
