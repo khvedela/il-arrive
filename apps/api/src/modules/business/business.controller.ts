@@ -6,13 +6,26 @@ import {
   Post,
   HttpCode,
   HttpStatus,
-  UseGuards,
   Request,
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { UpdateBusinessDto } from './dtos';
+
+interface RequestWithUser extends Request {
+  user: {
+    activeBusinessId: string;
+    userId: string;
+  };
+}
+
+interface FileUpload {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
+}
 
 @ApiTags('business')
 @Controller('business')
@@ -23,7 +36,7 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get current business profile' })
   @ApiCookieAuth()
-  async getBusiness(@Request() req) {
+  async getBusiness(@Request() req: RequestWithUser) {
     return this.businessService.getBusiness(req.user.activeBusinessId);
   }
 
@@ -31,7 +44,7 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update business profile' })
   @ApiCookieAuth()
-  async updateBusiness(@Request() req, @Body() dto: UpdateBusinessDto) {
+  async updateBusiness(@Request() req: RequestWithUser, @Body() dto: UpdateBusinessDto) {
     return this.businessService.updateBusiness(req.user.activeBusinessId, dto);
   }
 
@@ -39,8 +52,7 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Upload business logo (max 1MB, png/jpg/svg)' })
   @ApiCookieAuth()
-  async uploadLogo(@Request() req) {
-    const file = req.file;
+  async uploadLogo(@Request() req: RequestWithUser, @Body() file: FileUpload) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }

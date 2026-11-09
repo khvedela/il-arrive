@@ -1,6 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import { AuditLogService } from '../audit-log/audit-log.service';
+
+interface MembershipWithUser {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  isTechnician: boolean;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string | null;
+    avatarUrl: string | null;
+  };
+}
 
 @Injectable()
 export class ListMembersService {
@@ -24,14 +39,13 @@ export class ListMembersService {
       },
     });
 
-    return members.map((m) => ({
+    return members.map((m: MembershipWithUser) => ({
       userId: m.userId,
       email: m.user.email,
       firstName: m.user.firstName,
       lastName: m.user.lastName,
       role: m.role,
       isTechnician: m.isTechnician,
-      joinedAt: m.createdAt,
     }));
   }
 }

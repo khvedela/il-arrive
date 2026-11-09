@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { MailerOptions, Transporter } from 'nodemailer';
 import * as nodemailer from 'nodemailer';
 import * as dotenv from 'dotenv';
 
@@ -7,7 +6,7 @@ dotenv.config();
 
 @Injectable()
 export class MailProvider {
-  private transporter: Transporter;
+  private transporter: nodemailer.Transporter;
 
   constructor() {
     this.transporter = nodemailer.createTransport({
@@ -20,7 +19,7 @@ export class MailProvider {
             pass: process.env.SMTP_PASSWORD,
           }
         : undefined,
-    } as MailerOptions);
+    });
   }
 
   async send({

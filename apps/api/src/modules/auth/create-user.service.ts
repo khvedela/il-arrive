@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import * as argon2 from 'argon2';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class CreateUserService {

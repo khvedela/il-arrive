@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class CreateBusinessService {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute({ name, phone }: { name: string; phone?: string }) {
-    const slug = this.generateSlug(name);
+    let slug = this.generateSlug(name);
     
     let existingBusiness = await this.prisma.business.findUnique({
       where: { slug },

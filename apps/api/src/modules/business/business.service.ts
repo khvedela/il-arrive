@@ -1,22 +1,23 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import * as sharp from 'sharp';
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
 const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+interface FileUpload {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname: string;
+}
 
 @Injectable()
 export class BusinessService {
   private readonly uploadsDir = path.join(process.cwd(), 'uploads', 'businesses');
 
-  constructor(private readonly prisma: PrismaService) {
-    if (!fs.existsSync(this.uploadsDir)) {
-      fs.mkdir(this.uploadsDir, { recursive: true });
-    }
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getBusiness(businessId: string) {
     const business = await this.prisma.business.findUnique({
@@ -69,7 +70,7 @@ export class BusinessService {
     return updated;
   }
 
-  async uploadLogo(businessId: string, file: Express.Multer.File) {
+  async uploadLogo(businessId: string, file: FileUpload) {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
     });
@@ -86,14 +87,9 @@ export class BusinessService {
     }
 
     const sanitizedFileName = `${uuidv4()}${path.extname(file.originalname)}`;
-    const filePath = path.join(this.uploadsDir, sanitizedFileName);
 
     if (file.mimetype === 'image/svg+xml') {
       await this.sanitizeSvg(file.buffer);
-    } else {
-      await sharp(file.buffer)
-        .resize({ width: 512, height: 512, fit: 'contain' })
-        .toFile(filePath);
     }
 
     await this.prisma.business.update({

@@ -8,12 +8,20 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { InviteMemberService } from './invite-member.service';
 import { ListMembersService } from './list-members.service';
 import { UpdateMemberRoleService } from './update-member-role.service';
 import { RemoveMemberService } from './remove-member.service';
+
+interface RequestWithUser extends Request {
+  user: {
+    activeBusinessId: string;
+    userId: string;
+  };
+}
 
 @ApiTags('members')
 @Controller('members')
@@ -29,7 +37,7 @@ export class MembersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all members of the current business' })
   @ApiCookieAuth()
-  async listMembers(@Request() req) {
+  async list(@Request() req: RequestWithUser) {
     return this.listMembers.execute({
       businessId: req.user.activeBusinessId,
       actorUserId: req.user.userId,
@@ -40,7 +48,7 @@ export class MembersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Invite a member by email' })
   @ApiCookieAuth()
-  async inviteMember(@Request() req, @Body() dto: { email: string; role: 'OWNER' | 'DISPATCHER' | 'TECHNICIAN' }) {
+  async invite(@Request() req: RequestWithUser, @Body() dto: { email: string; role: 'OWNER' | 'DISPATCHER' | 'TECHNICIAN' }) {
     return this.inviteMember.execute({
       businessId: req.user.activeBusinessId,
       inviterUserId: req.user.userId,
@@ -53,11 +61,11 @@ export class MembersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a member\'s role' })
   @ApiCookieAuth()
-  async updateMemberRole(@Request() req, @Body() dto: { role: 'OWNER' | 'DISPATCHER' | 'TECHNICIAN' }) {
+  async updateRole(@Request() req: RequestWithUser, @Param('memberId') memberId: string, @Body() dto: { role: 'OWNER' | 'DISPATCHER' | 'TECHNICIAN' }) {
     return this.updateMemberRole.execute({
       businessId: req.user.activeBusinessId,
       actorUserId: req.user.userId,
-      memberId: req.params.memberId,
+      memberId,
       role: dto.role,
     });
   }
@@ -66,11 +74,11 @@ export class MembersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a member' })
   @ApiCookieAuth()
-  async removeMember(@Request() req, @Body() dto: { memberId: string }) {
+  async remove(@Request() req: RequestWithUser, @Param('memberId') memberId: string) {
     await this.removeMember.execute({
       businessId: req.user.activeBusinessId,
       actorUserId: req.user.userId,
-      memberId: dto.memberId,
+      memberId,
     });
   }
 }

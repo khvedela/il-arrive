@@ -6,12 +6,36 @@ import { ConfigService } from '@nestjs/config';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
-import { RequestPasswordResetDto } from './dtos/request-password-reset.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
 import { MailProvider } from '../mail/mail.provider';
 import { CreateBusinessService } from '../business/create-business.service';
 import { CreateUserService } from './create-user.service';
 import { CreateSessionService } from './create-session.service';
+
+interface MembershipWithBusiness {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  isTechnician: boolean;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string | null;
+    avatarUrl: string | null;
+  };
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    phone: string;
+    brandColor: string | null;
+    plan: string;
+  };
+}
 
 @Injectable()
 export class AuthService {
@@ -124,9 +148,9 @@ export class AuthService {
     });
   }
 
-  async getMe(payload: { userId: string; sessionId: string }) {
+  async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: userId },
     });
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -148,7 +172,7 @@ export class AuthService {
         phone: user.phone,
         avatarUrl: user.avatarUrl,
       },
-      memberships: memberships.map((m) => ({
+      memberships: memberships.map((m: MembershipWithBusiness) => ({
         id: m.business.id,
         name: m.business.name,
         slug: m.business.slug,
@@ -159,7 +183,7 @@ export class AuthService {
         role: m.role,
         isTechnician: m.isTechnician,
       })),
-      activeBusinessId: memberships.find((m) => m.role === 'OWNER')?.businessId || memberships[0]?.businessId,
+      activeBusinessId: memberships.find((m: MembershipWithBusiness) => m.role === 'OWNER')?.businessId || memberships[0]?.businessId,
     };
   }
 
@@ -235,7 +259,7 @@ export class AuthService {
       }),
       this.prisma.passwordResetToken.delete({
         where: { id: resetToken.id },
-      },
+      }),
     ]);
   }
 }
