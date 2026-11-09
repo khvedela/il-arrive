@@ -1,0 +1,212 @@
+/* ==========================================================================
+   Il Arrive — Design tokens (v1, designer, 2026-11-09)
+   Spec: docs/design/tokens.md — every value here is normative.
+   Usage: import once in each app (track, web, tech). Angular: include in
+   global styles; components must reference tokens only — never hex values.
+   ========================================================================== */
+
+:root {
+  /* ---- Font ------------------------------------------------------------- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  /* ---- Color: base ------------------------------------------------------ */
+  --color-bg: #faf9f6;            /* page canvas, warm off-white */
+  --color-surface: #ffffff;       /* cards, panels, inputs */
+  --color-surface-muted: #f4f3ef; /* hover fill, inset areas, disabled fill */
+  --color-surface-hover: #efede7; /* row/button hover fill on surface */
+
+  /* ---- Color: text (all ≥ 4.5:1 on bg/surface/surface-muted) ------------ */
+  --color-text-primary: #25231e;  /* 14.91:1 on --color-bg */
+  --color-text-secondary: #5b5748;/* 6.87:1  on --color-bg */
+  --color-text-muted: #6c6759;    /* 5.36:1  on --color-bg */
+  --color-text-inverse: #ffffff;  /* 15.50:1 on --color-ink */
+
+  /* ---- Color: border ---------------------------------------------------- */
+  --color-border: #e6e3dc;        /* thin default border (decorative) */
+  --color-border-strong: #d6d2c8; /* input border, emphasis (decorative) */
+  --color-border-focus: var(--color-ink);
+
+  /* ---- Color: brand & primary ------------------------------------------- */
+  --color-ink: #26241f;           /* primary button bg, wordmark, focus ring */
+  --color-ink-hover: #3a3830;
+  --color-ink-active: #1a1915;
+  --color-brand: #26241f;         /* "Il Arrive" wordmark & subtle accents */
+
+  /* ---- Color: danger ---------------------------------------------------- */
+  --color-danger: #c0392b;        /* danger button bg — white text 5.44:1 */
+  --color-danger-hover: #a93226;
+  --color-danger-text: #b3362c;   /* destructive text/links — 5.73:1 on bg */
+
+  /* ---- Color: status — en route (blue) ---------------------------------- */
+  --color-enroute-fg: #1b4fcc;    /* 6.09:1 on --color-enroute-bg */
+  --color-enroute-bg: #eaf1fd;
+  --color-enroute-border: #c9d9f5;
+  --color-enroute-solid: #2e6be6; /* dot/icon/live accent — 4.57:1 on bg */
+
+  /* ---- Color: status — arrived / completed (green) ----------------------- */
+  --color-success-fg: #176b35;    /* 5.92:1 on --color-success-bg */
+  --color-success-bg: #e9f6ee;
+  --color-success-border: #bfe3cd;
+  --color-success-solid: #2e9e5b; /* 3.24:1 on bg */
+
+  /* ---- Color: status — delayed / needs attention (amber) ----------------- */
+  --color-warning-fg: #8a5300;    /* 5.79:1 on --color-warning-bg */
+  --color-warning-bg: #fdf4e3;
+  --color-warning-border: #eedcb8;
+  --color-warning-solid: #d97706; /* 3.03:1 on bg */
+
+  /* ---- Color: status — cancelled / failed (red) --------------------------- */
+  --color-error-fg: #b3362c;      /* 5.34:1 on --color-error-bg */
+  --color-error-bg: #fceeed;
+  --color-error-border: #f1cdc8;
+  --color-error-solid: #d14338;   /* 4.36:1 on bg */
+
+  /* ---- Color: status — scheduled / inactive (gray) ------------------------ */
+  --color-neutral-fg: #57534a;    /* 6.72:1 on --color-neutral-bg */
+  --color-neutral-bg: #f1f0ec;
+  --color-neutral-border: #dcd9d1;
+  --color-neutral-solid: #8a857a; /* 3.49:1 on bg */
+
+  /* ---- Spacing (4px base) ------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ---- Radii --------------------------------------------------------------- */
+  --radius-sm: 4px;   /* chips, tiny */
+  --radius-md: 8px;   /* inputs, buttons */
+  --radius-lg: 12px;  /* cards, sheets, big buttons */
+  --radius-xl: 16px;  /* modals, drawers (top corner on bottom sheets) */
+  --radius-full: 9999px; /* dots, avatars, pills */
+
+  /* ---- Shadows (restrained, warm-tinted) ------------------------------------ */
+  --shadow-xs: 0 1px 2px rgba(37, 35, 30, 0.05);
+  --shadow-sm: 0 1px 2px rgba(37, 35, 30, 0.05), 0 2px 6px rgba(37, 35, 30, 0.06);
+  --shadow-md: 0 2px 4px rgba(37, 35, 30, 0.05), 0 4px 12px rgba(37, 35, 30, 0.08);
+  --shadow-lg: 0 4px 8px rgba(37, 35, 30, 0.06), 0 12px 32px rgba(37, 35, 30, 0.12);
+
+  /* ---- Typography scale (size / line-height) --------------------------------- */
+  --text-overline: 11px;           /* labels, uppercase, 600, tracking +0.08em */
+  --text-xs: 12px;                 /* meta, captions — line-height 16px */
+  --text-sm: 14px;                 /* compact body, list rows — 20px */
+  --text-md: 16px;                 /* base body — 24px */
+  --text-lg: 18px;                 /* sub-headings — 28px */
+  --text-xl: 20px;                 /* card titles — 28px, 600 */
+  --text-2xl: 24px;                /* section titles — 32px, 600, tracking -0.01em */
+  --text-3xl: 30px;                /* page titles — 40px, 600, tracking -0.01em */
+  --text-hero: 44px;               /* ETA display, track page — 48px, 600, tracking -0.02em */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --tracking-overline: 0.08em;
+  --tracking-tight: -0.01em;
+  --tracking-hero: -0.02em;
+
+  /* ---- Controls --------------------------------------------------------------- */
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 48px;
+  --control-h-action: 56px;   /* technician "action" buttons, ≥ 56px */
+  --touch-target-min: 44px;   /* WCAG 2.2 AA 2.5.8 minimum hit area */
+
+  /* ---- Focus ring --------------------------------------------------------------- */
+  --focus-color: #26241f;
+  --focus-offset: 2px;
+  --focus-width: 2px;
+
+  /* ---- Motion (minimal) ----------------------------------------------------------- */
+  --motion-fast: 120ms;   /* hover, press, toggle */
+  --motion-base: 200ms;   /* sheet, drawer, modal in/out */
+  --motion-slow: 320ms;   /* progress fill, rare transitions */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-linear: linear;  /* progress bars only */
+
+  /* ---- Layout -------------------------------------------------------------------- */
+  --track-column-max: 480px;  /* customer tracking page content width */
+  --tech-column-max: 480px;   /* technician PWA content width */
+  --app-content-max: 1280px;
+  --app-sidebar-w: 240px;
+  --drawer-w: 480px;
+
+  /* ---- Z-index --------------------------------------------------------------------- */
+  --z-sticky: 200;
+  --z-dropdown: 300;
+  --z-drawer: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+}
+
+/* ==========================================================================
+   Dark mode — lower priority per brief; verified contrast, same structure.
+   Activated by: <html class="dark"> (prefers-color-scheme in PWA shell).
+   ========================================================================== */
+.dark {
+  --color-bg: #191815;
+  --color-surface: #211f1c;
+  --color-surface-muted: #2a2824;
+  --color-surface-hover: #2e2c28;
+
+  --color-text-primary: #f1efe9;  /* 15.44:1 on --color-bg */
+  --color-text-secondary: #b8b4a9; /* 8.57:1 on --color-bg */
+  --color-text-muted: #949088;     /* 5.58:1  on --color-bg */
+  --color-text-inverse: #191815;
+
+  --color-border: #35332d;
+  --color-border-strong: #454238;
+  --color-border-focus: #f1efe9;
+
+  --color-ink: #f1efe9;           /* primary button becomes light */
+  --color-ink-hover: #fffdf7;
+  --color-ink-active: #d9d6ce;
+  --color-brand: #f1efe9;
+
+  --color-danger: #e06a5f;
+  --color-danger-hover: #ea857b;
+  --color-danger-text: #f09a93;
+
+  --color-enroute-fg: #93b8f5;
+  --color-enroute-bg: #1e2a44;
+  --color-enroute-border: #31415f;
+  --color-enroute-solid: #7ba4ec;
+
+  --color-success-fg: #7ed098;
+  --color-success-bg: #1b3324;
+  --color-success-border: #2c4d38;
+  --color-success-solid: #5fbf83;
+
+  --color-warning-fg: #e8b45c;
+  --color-warning-bg: #3a2e14;
+  --color-warning-border: #57431f;
+  --color-warning-solid: #dea04c;
+
+  --color-error-fg: #f09a93;
+  --color-error-bg: #3d211e;
+  --color-error-border: #5a2f2a;
+  --color-error-solid: #e37c73;
+
+  --color-neutral-fg: #b8b4a9;
+  --color-neutral-bg: #2e2c28;
+  --color-neutral-border: #454238;
+  --color-neutral-solid: #949088;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  --focus-color: #f1efe9;
+}

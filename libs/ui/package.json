@@ -1,21 +1,60 @@
 {
   "name": "@il-arrive/ui",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "test": "jest"
+  },
   "sideEffects": false,
   "exports": {
-    ".": "./src/public-api.ts",
-    "./styles": "./src/styles.scss"
+    ".": {
+      "types": "./src/public-api.d.ts",
+      "import": "./src/public-api.ts"
+    },
+    "./styles": "./src/styles.scss",
+    "./tokens": "./src/tokens.css",
+    "./button": "./src/components/button/button.component.ts",
+    "./input": "./src/components/input/input.component.ts",
+    "./textarea": "./src/components/textarea/textarea.component.ts",
+    "./select": "./src/components/select/select.component.ts",
+    "./phone-input": "./src/components/phone-input/phone-input.component.ts",
+    "./address-autocomplete": "./src/components/address-autocomplete/address-autocomplete.component.ts",
+    "./date-window-picker": "./src/components/date-window-picker/date-window-picker.component.ts",
+    "./status-badge": "./src/components/status-badge/status-badge.component.ts",
+    "./card": "./src/components/card/card.component.ts",
+    "./list-row": "./src/components/list-row/list-row.component.ts",
+    "./drawer": "./src/components/drawer/drawer.component.ts",
+    "./modal": "./src/components/modal/modal.component.ts",
+    "./toast": "./src/components/toast/toast-service.ts",
+    "./toast-container": "./src/components/toast/toast-container.component.ts",
+    "./empty-state": "./src/components/empty-state/empty-state.component.ts",
+    "./loading-state": "./src/components/loading-state/loading-state.component.ts",
+    "./error-state": "./src/components/error-state/error-state.component.ts",
+    "./avatar": "./src/components/avatar/avatar.component.ts",
+    "./timeline": "./src/components/timeline/timeline.component.ts",
+    "./tabs": "./src/components/tabs/tabs.component.ts",
+    "./menu": "./src/components/menu/menu.component.ts"
   },
   "dependencies": {
-    "@angular/common": "^19.2.0",
-    "@angular/core": "^19.2.0"
+    "@angular/cdk": "^19.0.0",
+    "@angular/common": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0"
   },
   "peerDependencies": {
+    "@angular/cdk": "^19.0.0",
     "@angular/common": "^19.0.0",
-    "@angular/core": "^19.0.0"
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@angular/compiler": "^19.2.25",
+    "@angular/platform-browser": "^19.2.25",
+    "@angular/platform-browser-dynamic": "^19.2.25",
+    "@types/jest": "^30.0.0",
+    "@types/jsdom": "^30.0.0",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-preset-angular": "^17.0.3",
+    "typescript": "~5.7.0"
   }
 }
