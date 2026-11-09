@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaService } from '../../common/prisma.service';
+import { DatabaseModule } from '../../common/database.module';
+import { AuthModule } from '../auth/auth.module';
+import { InterventionModule } from '../intervention/intervention.module';
+import { NotificationEventSubscriber } from './notification-event-subscriber';
 import { ConsoleSmsProvider } from './providers/console-sms.provider';
 import { SMS_PROVIDER } from './sms-provider';
 import { NotificationService, NOTIFICATIONS_QUEUE } from './notification.service';
@@ -12,7 +15,6 @@ import { NotificationProcessor } from './notification.processor';
 import { TrackingLinkService } from './tracking-link.service';
 
 const shared = [
-  PrismaService,
   TrackingLinkService,
   NotificationService,
   NotificationEventsService,
@@ -22,7 +24,7 @@ const shared = [
 
 /** API process: enqueues notifications, serves endpoints. */
 @Module({
-  imports: [ConfigModule, BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE })],
+  imports: [DatabaseModule, AuthModule, InterventionModule, ConfigModule, BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE })],
   controllers: [NotificationController],
   providers: shared,
   exports: [NotificationService, NotificationEventsService],
@@ -31,8 +33,8 @@ export class NotificationModule {}
 
 /** Worker process: consumes the `notifications` queue. */
 @Module({
-  imports: [ConfigModule, BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE })],
-  providers: [...shared, NotificationProcessor],
+  imports: [DatabaseModule, AuthModule, InterventionModule, ConfigModule, BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE })],
+  providers: [...shared, NotificationProcessor, NotificationEventSubscriber],
   exports: [NotificationService, NotificationEventsService],
 })
 export class NotificationWorkerModule {}

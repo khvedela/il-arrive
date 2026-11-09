@@ -1,46 +1,52 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
-
-const POST_WINDOW_MS = 48 * 3600 * 1000;
+import { hashToken, linkExpiry, TrackingLinkService as SharedTrackingLinks } from '../intervention/tracking-link.service';
 
 export class TrackingLinkExpiredError extends Error {
-  constructor() {
-    super('tracking_link_expired');
-  }
+  constructor() { super('tracking_link_expired'); }
 }
 
-/**
- * Issues a customer-facing tracking URL (only the SHA-256 token hash is stored).
- * Expiry follows the contract: windowEnd + 48h. Regeneration/revocation of
- * existing links belongs to the SLA-8 tracking lifecycle.
- */
+export class TrackingLinkRevokedError extends Error {
+  constructor() { super('tracking_link_revoked'); }
+}
+
+/** Reuses a still-active URL already held by the outbox; otherwise uses shared rotation. */
 @Injectable()
 export class TrackingLinkService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
-  ) {}
+  constructor(private readonly prisma: PrismaService, private readonly shared: SharedTrackingLinks) {}
 
   async issue(
     intervention: { id: string; windowEnd: Date },
     now = new Date(),
-    db: Prisma.TransactionClient | PrismaService = this.prisma,
+    db?: Prisma.TransactionClient,
+    allowRegenerate = false,
   ): Promise<string> {
-    const token = randomBytes(32).toString('base64url');
-    // Hard contract expiry: windowEnd + 48h; never extended for past interventions.
-    const expiresAt = new Date(intervention.windowEnd.getTime() + POST_WINDOW_MS);
-    if (expiresAt <= now) throw new TrackingLinkExpiredError();
-    await db.trackingLink.create({
-      data: {
-        interventionId: intervention.id,
-        tokenHash: createHash('sha256').update(token).digest('hex'),
-        expiresAt,
-      },
-    });
-    const base = this.config.get<string>('FRONTEND_TRACK_URL', 'http://localhost:4201');
-    return `${base.replace(/\/$/, '')}/t/${token}`;
+    if (linkExpiry(intervention.windowEnd) <= now) throw new TrackingLinkExpiredError();
+    const resolve = async (tx: Prisma.TransactionClient) => {
+      // Same lock as shared revoke/rotate, including when called inside quota reservation.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${intervention.id}))`;
+      const active = await tx.trackingLink.findFirst({
+        where: { interventionId: intervention.id, revokedAt: null },
+      });
+      if (!active && !allowRegenerate && await tx.trackingLink.count({ where: { interventionId: intervention.id, revokedAt: { not: null } } })) {
+        throw new TrackingLinkRevokedError();
+      }
+      if (active && active.expiresAt > now) {
+        const previous = await tx.notification.findMany({
+          where: { interventionId: intervention.id, body: { not: '' } },
+          orderBy: { createdAt: 'desc' },
+          select: { body: true },
+        });
+        for (const n of previous) {
+          const token = n.body.match(/\/t\/([A-Za-z0-9_-]+)/)?.[1];
+          if (token && hashToken(token) === active.tokenHash) return this.shared.urlFor(token);
+        }
+      }
+      // Raw tokens are only returned once by SLA-8. If none is available, rotate rather
+      // than deriving an invalid token from a hash or leaving multiple active links.
+      return (await this.shared.issue(intervention.id, intervention.windowEnd, tx)).url;
+    };
+    return db ? resolve(db) : this.prisma.$transaction(resolve);
   }
 }

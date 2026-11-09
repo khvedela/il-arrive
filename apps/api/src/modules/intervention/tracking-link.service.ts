@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -43,10 +44,10 @@ export class TrackingLinkService {
   }
 
   /** Internal: issue without the tenant lookup, for callers that already loaded the intervention. */
-  async issue(interventionId: string, windowEnd: Date): Promise<IssuedTrackingLink> {
+  async issue(interventionId: string, windowEnd: Date, db?: Prisma.TransactionClient): Promise<IssuedTrackingLink> {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = linkExpiry(windowEnd);
-    await this.repository.replaceLink(interventionId, hashToken(token), expiresAt);
+    await this.repository.replaceLink(interventionId, hashToken(token), expiresAt, db);
     return { token, url: this.urlFor(token), expiresAt };
   }
 

@@ -11,6 +11,11 @@ import request from 'supertest';
 import { PrismaService } from '../../src/common/prisma.service';
 import { NotificationModule, NotificationWorkerModule } from '../../src/modules/notification/notification.module';
 import { NotificationService, NOTIFICATIONS_QUEUE } from '../../src/modules/notification/notification.service';
+import { InterventionService } from '../../src/modules/intervention/intervention.service';
+import { PublicTrackingService } from '../../src/modules/intervention/public-tracking.service';
+import { TrackingLinkService as SharedTrackingLinks } from '../../src/modules/intervention/tracking-link.service';
+import { CreateSessionService } from '../../src/modules/auth/create-session.service';
+import { NotificationEventSubscriber } from '../../src/modules/notification/notification-event-subscriber';
 import { NotificationEventsService } from '../../src/modules/notification/notification-events.service';
 import { SMS_PROVIDER } from '../../src/modules/notification/sms-provider';
 
@@ -40,6 +45,7 @@ describe('Notifications (Postgres + Redis)', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
         BullModule.forRoot({
+          prefix: `sla10-test-${process.pid}`,
           connection: { host: process.env.REDIS_HOST ?? 'localhost', port: Number(process.env.REDIS_PORT ?? 6379) },
         }),
         NotificationWorkerModule, // consumes the queue
@@ -51,12 +57,6 @@ describe('Notifications (Postgres + Redis)', () => {
       .compile();
     app = mod.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    // Stand-in for the auth module: attaches request.auth from a header.
-    app.use((req: any, _res: any, next: any) => {
-      const h = req.headers['x-test-auth'];
-      if (h) req.auth = JSON.parse(String(h));
-      next();
-    });
     await app.init();
     prisma = mod.get(PrismaService, { strict: false });
     svc = mod.get(NotificationService, { strict: false });
@@ -66,6 +66,7 @@ describe('Notifications (Postgres + Redis)', () => {
   });
 
   afterAll(async () => {
+    await queue?.obliterate({ force: true });
     await app?.close();
   });
 
@@ -118,9 +119,10 @@ describe('Notifications (Postgres + Redis)', () => {
   const rows = (interventionId: string) => prisma.notification.findMany({ where: { interventionId } });
 
   it('en_route → exactly one SMS via worker, with a resolvable tracking link; ETA jitter sends nothing', async () => {
-    const { iv, business } = await seed();
+    const { iv, business, user } = await seed({ status: 'SCHEDULED' });
     const eta = min(40);
-    await events.handle({ type: 'intervention.en_route', interventionId: iv.id, eta });
+    await prisma.trackingSession.update({ where: { interventionId: iv.id }, data: { etaAt: eta } });
+    await app.get(InterventionService).enRouteIntervention(business.id, iv.id, user.id);
     const sent = await until(async () => (await rows(iv.id)).find((n) => n.status === 'SENT'));
     expect(sent).toMatchObject({ kind: 'EN_ROUTE', to: '+33612345678', provider: 'console', attempts: 1 });
 
@@ -130,6 +132,7 @@ describe('Notifications (Postgres + Redis)', () => {
       where: { tokenHash: createHash('sha256').update(token).digest('hex') },
     });
     expect(link?.interventionId).toBe(iv.id);
+    expect((await app.get(PublicTrackingService).getPublicTracking(token)).status).toBe('EN_ROUTE');
     expect(link!.expiresAt.getTime()).toBe(iv.windowEnd.getTime() + 48 * 3600_000);
 
     for (const d of [1, 3, 5]) {
@@ -144,7 +147,8 @@ describe('Notifications (Postgres + Redis)', () => {
       .toEqual(eta);
 
     // redelivery of the same event is deduped
-    await events.handle({ type: 'intervention.en_route', interventionId: iv.id, eta });
+    await prisma.interventionEvent.updateMany({ where: { interventionId: iv.id }, data: { notificationProcessedAt: null } });
+    await app.get(NotificationEventSubscriber).drain();
     expect(await rows(iv.id)).toHaveLength(1);
   });
 
@@ -257,8 +261,39 @@ describe('Notifications (Postgres + Redis)', () => {
     expect((await rows(iv.id))[0]).toMatchObject({ status: 'FAILED', error: 'handset off' });
   });
 
+  it('reuses outbox links, rotates with SLA-8 and suppresses queued sends after revocation', async () => {
+    const { iv, business } = await seed();
+    const shared = app.get(SharedTrackingLinks);
+    await queue.pause();
+    try {
+      await svc.request({ interventionId: iv.id, kind: 'EN_ROUTE', version: 'reuse-a' });
+      await svc.request({ interventionId: iv.id, kind: 'DELAY', version: 'reuse-b' });
+      const pending = await rows(iv.id);
+      const token = pending[0].body.match(/\/t\/([\w-]+)/)![1];
+      expect(pending[1].body).toContain(token);
+      expect(await prisma.trackingLink.count({ where: { interventionId: iv.id, revokedAt: null } })).toBe(1);
+      const rotated = await shared.regenerate(business.id, iv.id);
+      await expect(app.get(PublicTrackingService).getPublicTracking(token)).rejects.toMatchObject({ status: 404 });
+      expect((await app.get(PublicTrackingService).getPublicTracking(rotated.token)).status).toBe('EN_ROUTE');
+      await shared.revoke(business.id, iv.id);
+      await expect(app.get(PublicTrackingService).getPublicTracking(rotated.token)).rejects.toMatchObject({ status: 404 });
+    } finally {
+      await queue.resume();
+    }
+    await until(async () => (await rows(iv.id)).every((n) => n.status === 'FAILED'));
+    expect((await rows(iv.id)).map((n) => n.error)).toEqual(['tracking_link_revoked', 'tracking_link_revoked']);
+    expect(provider.keys).toHaveLength(0);
+    expect((await prisma.business.findUniqueOrThrow({ where: { id: business.id } })).smsUsedThisPeriod).toBe(0);
+    // Explicit share/copy uses the documented rotation strategy and restores a resolvable URL.
+    const share = await svc.buildShareMessage(iv.id, { businessId: business.id });
+    expect((await app.get(PublicTrackingService).getPublicTracking(share.link.split('/t/')[1])).status).toBe('EN_ROUTE');
+  });
+
   describe('HTTP auth isolation', () => {
-    const auth = (a: object) => JSON.stringify(a);
+    async function auth(a: Awaited<ReturnType<typeof seed>>, role: 'OWNER' | 'TECHNICIAN') {
+      await prisma.membership.update({ where: { id: a.tech.id }, data: { role } });
+      return `Bearer ${(await app.get(CreateSessionService).execute({ userId: a.user.id })).token}`;
+    }
 
     it('rejects unauthenticated and wrong-role callers; scopes by business', async () => {
       const a = await seed();
@@ -268,29 +303,33 @@ describe('Notifications (Postgres + Redis)', () => {
       await http().post(`/interventions/${a.iv.id}/notify`).send({ kind: 'EN_ROUTE' }).expect(401);
       await http().get('/business/sms-usage').expect(401);
 
-      const techOfA = { userId: a.user.id, businessId: a.business.id, role: 'TECHNICIAN' };
-      await http().post(`/interventions/${a.iv.id}/notify`).set('x-test-auth', auth(techOfA))
+      const techOfA = await auth(a, 'TECHNICIAN');
+      await http().post(`/interventions/${a.iv.id}/notify`).set('authorization', techOfA)
         .send({ kind: 'EN_ROUTE' }).expect(403);
 
-      const ownerOfB = { userId: 'u', businessId: b.business.id, role: 'OWNER' };
-      await http().post(`/interventions/${a.iv.id}/notify`).set('x-test-auth', auth(ownerOfB))
+      const ownerOfB = await auth(b, 'OWNER');
+      await http().get('/business/sms-usage').set('authorization', ownerOfB)
+        .set('x-business-id', a.business.id).expect(403);
+      await http().post(`/interventions/${a.iv.id}/notify`).set('authorization', ownerOfB)
         .send({ kind: 'EN_ROUTE' }).expect(404);
-      await http().get(`/interventions/${a.iv.id}/share-message`).set('x-test-auth', auth(ownerOfB)).expect(404);
+      await http().get(`/interventions/${a.iv.id}/share-message`).set('authorization', ownerOfB).expect(404);
       expect(await rows(a.iv.id)).toHaveLength(0);
 
       // technician of A: own intervention OK, someone else's not
       const share = await http().get(`/interventions/${a.iv.id}/share-message`)
-        .set('x-test-auth', auth(techOfA)).expect(200);
+        .set('authorization', techOfA).expect(200);
       expect(share.body.smsUri).toMatch(/^sms:\+33612345678\?body=/);
       expect(share.body.link).toContain('/t/');
       const a2 = await seed();
-      await http().get(`/interventions/${a2.iv.id}/share-message`).set('x-test-auth', auth(techOfA)).expect(404);
+      await http().get(`/interventions/${a2.iv.id}/share-message`).set('authorization', techOfA).expect(404);
 
-      const ownerOfA = { userId: 'u', businessId: a.business.id, role: 'OWNER' };
-      await http().post(`/interventions/${a.iv.id}/notify`).set('x-test-auth', auth(ownerOfA))
+      const ownerOfA = await auth(a, 'OWNER');
+      await http().post(`/interventions/${a.iv.id}/notify`).set('authorization', ownerOfA)
         .send({ kind: 'CONFIRMATION' }).expect(202);
-      const usage = await http().get('/business/sms-usage').set('x-test-auth', auth(ownerOfA)).expect(200);
+      const usage = await http().get('/business/sms-usage').set('authorization', ownerOfA).expect(200);
       expect(usage.body).toMatchObject({ quota: 50, used: 1, remaining: 49 });
+      await prisma.session.deleteMany({ where: { userId: a.user.id } });
+      await http().get('/business/sms-usage').set('authorization', ownerOfA).expect(401);
     });
   });
 });

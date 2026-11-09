@@ -7,7 +7,7 @@ import { SMS_PROVIDER, SmsProvider } from './sms-provider';
 import { DEFAULT_PREFS, evaluateSmsPolicy, resolvePrefs, SkipReason, startOfMonthUtc } from './policy/sms-policy';
 import { renderSms } from './sms-templates';
 import { parsePhone } from './phone';
-import { TrackingLinkExpiredError, TrackingLinkService } from './tracking-link.service';
+import { TrackingLinkExpiredError, TrackingLinkRevokedError, TrackingLinkService } from './tracking-link.service';
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 export const SEND_ATTEMPTS = 3;
@@ -111,9 +111,9 @@ export class NotificationService {
 
       let trackingLink: string;
       try {
-        trackingLink = await this.links.issue(full, now, tx);
+        trackingLink = await this.links.issue(full, now, tx, !!input.manual);
       } catch (e) {
-        if (e instanceof TrackingLinkExpiredError) return failed('tracking_link_expired');
+        if (e instanceof TrackingLinkExpiredError || e instanceof TrackingLinkRevokedError) return failed(e.message);
         throw e;
       }
       const { body, warning } = renderSms(kind, {
@@ -193,6 +193,8 @@ export class NotificationService {
         const locked = await tx.notification.findUnique({ where: { id: n.id }, select: { status: true } });
         if (locked?.status !== 'QUEUED') return null;
 
+        await tx.$queryRaw`SELECT id FROM "Intervention" WHERE id = ${n.interventionId} FOR UPDATE`;
+        const current = await tx.intervention.findUniqueOrThrow({ where: { id: n.interventionId }, select: { status: true, windowEnd: true } });
         const session = await tx.trackingSession.findFirst({ where: { interventionId: n.interventionId } });
         const sent = await tx.notification.findMany({
           where: { interventionId: n.interventionId, id: { not: n.id }, status: { in: ['SENT', 'DELIVERED'] } },
@@ -204,7 +206,7 @@ export class NotificationService {
         );
         const decision = evaluateSmsPolicy({
           kind: n.kind,
-          status: n.intervention.status,
+          status: current.status,
           prefs: DEFAULT_PREFS,
           sentCount: 0, // cap and quota were enforced when the slot was reserved
           lastSentAt,
@@ -219,12 +221,22 @@ export class NotificationService {
           await this.failReserved(tx, n, decision.reason);
           return null;
         }
+        let body = n.body;
         try {
-          const { providerMessageId } = await this.provider.send(n.to, n.body, n.idempotencyKey);
+          const link = await this.links.issue({ id: n.interventionId, windowEnd: current.windowEnd }, now, tx);
+          body = body.replace(/https?:\/\/[^\s]+\/t\/[A-Za-z0-9_-]+/, link);
+        } catch (e) {
+          if (!(e instanceof TrackingLinkExpiredError || e instanceof TrackingLinkRevokedError)) throw e;
+          await this.failReserved(tx, n, e.message);
+          return null;
+        }
+        try {
+          const { providerMessageId } = await this.provider.send(n.to, body, n.idempotencyKey);
           await tx.notification.update({
             where: { id: n.id },
             data: {
               status: 'SENT',
+              body,
               providerMessageId,
               provider: this.provider.name,
               sentAt: now,
@@ -330,7 +342,7 @@ export class NotificationService {
     if (!iv) throw new NotFoundException('intervention_not_found');
     let link: string;
     try {
-      link = await this.links.issue(iv);
+      link = await this.links.issue(iv, new Date(), undefined, true);
     } catch (e) {
       if (e instanceof TrackingLinkExpiredError) throw new GoneException('tracking_link_expired');
       throw e;

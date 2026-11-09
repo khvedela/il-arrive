@@ -161,8 +161,8 @@ export class InterventionRepository {
   }
 
   /** Revokes every active link of the intervention and issues a new one atomically. */
-  async replaceLink(interventionId: string, tokenHash: string, expiresAt: Date): Promise<TrackingLink> {
-    return this.prisma.$transaction(async (tx) => {
+  async replaceLink(interventionId: string, tokenHash: string, expiresAt: Date, db?: Prisma.TransactionClient): Promise<TrackingLink> {
+    const replace = async (tx: Prisma.TransactionClient) => {
       // Serialise rotation per intervention: without this, two concurrent calls that both see
       // "no active link" would each create one. The partial unique index is the DB-level backstop.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${interventionId}))`;
@@ -171,7 +171,8 @@ export class InterventionRepository {
         data: { revokedAt: new Date() },
       });
       return tx.trackingLink.create({ data: { interventionId, tokenHash, expiresAt } });
-    });
+    };
+    return db ? replace(db) : this.prisma.$transaction(replace);
   }
 
   /** Takes the same per-intervention lock as replaceLink, so revoke and rotate are totally ordered. */

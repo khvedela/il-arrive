@@ -158,6 +158,7 @@ model Intervention {
 }
 
 model InterventionEvent {
+  notificationProcessedAt DateTime?
   id             String   @id @default(cuid())
   interventionId String
   type           String
@@ -169,6 +170,7 @@ model InterventionEvent {
 
   @@index([interventionId])
   @@index([createdAt])
+  @@index([notificationProcessedAt, createdAt])
 }
 
 model TrackingLink {
