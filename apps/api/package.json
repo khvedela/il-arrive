@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "worker": "node dist/worker",
     "build": "nest build",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
     "pretypecheck": "prisma generate && pnpm -F @il-arrive/contracts build",
     "pretest": "prisma generate && pnpm -F @il-arrive/contracts build",
     "prebuild": "prisma generate && pnpm -F @il-arrive/contracts build",
