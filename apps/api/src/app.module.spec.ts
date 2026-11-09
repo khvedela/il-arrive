@@ -17,6 +17,7 @@ const businessService = { getBusiness: jest.fn(async () => ({ id: 'b1' })), upda
 const interventionService = {
   listInterventions: jest.fn(async () => []),
   getMyInterventions: jest.fn(async () => []),
+  getMyToday: jest.fn(async () => ({ date: '2026-11-09', interventions: [] })),
 };
 const authService = { changePassword: jest.fn(async () => undefined), getMe: jest.fn(async () => ({})) };
 
@@ -101,6 +102,8 @@ describe('AppModule wiring + authorization', () => {
     await http.get('/tech/interventions').set('x-test-user', as('TECHNICIAN')).expect(200);
     await http.get('/tech/interventions').set('x-test-user', as('OWNER')).expect(200);
     expect(interventionService.getMyInterventions).toHaveBeenCalledWith('b1', 'u1', undefined);
+    await http.get('/tech/interventions/today').set('x-test-user', as('TECHNICIAN')).expect(200);
+    expect(interventionService.getMyToday).toHaveBeenCalledWith('b1', 'u1');
   });
 
   it('change password uses the authenticated user id, not a literal', async () => {

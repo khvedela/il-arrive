@@ -66,4 +66,23 @@ describe('technician access (solo-pro owner flow)', () => {
     await service.getMyInterventions(BUSINESS, 'owner-1', 'SCHEDULED');
     expect(list).toHaveBeenCalledWith(BUSINESS, { status: 'SCHEDULED', technicianMembershipId: 'm-tech' });
   });
+
+  it('getMyToday is scoped to the caller membership and the local day, with customers', async () => {
+    const { service } = build({ 'tech-1': 'm-tech' });
+    const rows = [{ ...base, customer: { id: 'c1', name: 'Marie', phone: '06' } }];
+    const fn = jest.fn(async () => rows);
+    (service as unknown as { repository: Record<string, unknown> }).repository.listForTechnicianWithCustomer = fn;
+    const now = new Date(2026, 10, 9, 15, 30);
+    const res = await service.getMyToday(BUSINESS, 'tech-1', now);
+    const [b, m, from, to] = fn.mock.calls[0] as unknown as [string, string, Date, Date];
+    expect([b, m]).toEqual([BUSINESS, 'm-tech']);
+    expect(from).toEqual(new Date(2026, 10, 9));
+    expect(to).toEqual(new Date(2026, 10, 10));
+    expect(res.interventions).toBe(rows);
+  });
+
+  it('getMyToday rejects a user without technician membership', async () => {
+    const { service } = build({});
+    await expect(service.getMyToday(BUSINESS, 'owner-1')).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

@@ -54,6 +54,22 @@ export class InterventionRepository {
     });
   }
 
+  /** A technician's own interventions scheduled in [from, to), with the customer's contact data. */
+  listForTechnicianWithCustomer(businessId: string, technicianMembershipId: string, from: Date, to: Date) {
+    return this.prisma.intervention.findMany({
+      where: { businessId, technicianMembershipId, scheduledDate: { gte: from, lt: to } },
+      include: { customer: { select: { id: true, name: true, phone: true } } },
+      orderBy: { windowStart: 'asc' },
+    });
+  }
+
+  findCustomer(customerId: string, businessId: string) {
+    return this.prisma.customer.findFirst({
+      where: { id: customerId, businessId },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
   async listToday(businessId: string): Promise<{ status: InterventionStatus; interventions: Intervention[] }[]> {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
