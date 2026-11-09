@@ -15,3 +15,5 @@ export interface Geocoder {
   search(query: string): Promise<GeocodingResult[]>;
   autocomplete(query: string, limit?: number): Promise<GeocodingResult[]>;
 }
+
+export const GEOCODER_TOKEN = 'GEOCODER';

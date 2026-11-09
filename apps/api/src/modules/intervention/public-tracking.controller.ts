@@ -1,6 +1,7 @@
 import { Controller, Get, HttpException, Param, Res } from '@nestjs/common';
 import { ApiNotFoundResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { TrackingEventsHub } from '../tracking/tracking-events.hub';
 import { PublicTrackingProjection, PublicTrackingService } from './public-tracking.service';
 
 const POLL_MS = 5_000;
@@ -12,7 +13,10 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 @ApiTags('public-tracking')
 @Controller('public')
 export class PublicTrackingController {
-  constructor(private readonly publicTrackingService: PublicTrackingService) {}
+  constructor(
+    private readonly publicTrackingService: PublicTrackingService,
+    private readonly hub: TrackingEventsHub,
+  ) {}
 
   @Get('track/:token')
   @ApiOperation({ summary: 'Customer-safe tracking projection by token' })
@@ -46,27 +50,41 @@ export class PublicTrackingController {
     response.flushHeaders();
     response.write(`event: projection\ndata: ${last}\n\n`);
 
+    const interventionId = await this.publicTrackingService.interventionIdForToken(token);
     let sinceHeartbeat = 0;
-    const timer = setInterval(async () => {
+    let closed = false;
+    const refresh = async () => {
       try {
         const current = JSON.stringify(await this.publicTrackingService.getPublicTracking(token));
-        sinceHeartbeat += POLL_MS;
-        if (current !== last) {
-          last = current;
-          sinceHeartbeat = 0;
-          response.write(`event: projection\ndata: ${current}\n\n`);
-        } else if (sinceHeartbeat >= HEARTBEAT_MS) {
-          sinceHeartbeat = 0;
-          response.write(': heartbeat\n\n');
-        }
+        if (closed || current === last) return false;
+        last = current;
+        sinceHeartbeat = 0;
+        response.write(`event: projection\ndata: ${current}\n\n`);
+        return true;
       } catch {
         // Revoked or expired mid-stream.
-        clearInterval(timer);
+        if (closed) return false;
+        stop();
         response.write('event: session_end\ndata: {"reason":"expired"}\n\n');
         response.end();
+        return false;
+      }
+    };
+    // Push: ETA recompute, fixes, staleness and session end publish on the hub; polling is only a safety net.
+    const unsubscribe = this.hub.subscribe(interventionId, () => void refresh());
+    const timer = setInterval(async () => {
+      sinceHeartbeat += POLL_MS;
+      if (!(await refresh()) && !closed && sinceHeartbeat >= HEARTBEAT_MS) {
+        sinceHeartbeat = 0;
+        response.write(': heartbeat\n\n');
       }
     }, POLL_MS);
+    const stop = () => {
+      closed = true;
+      clearInterval(timer);
+      unsubscribe();
+    };
 
-    response.on('close', () => clearInterval(timer));
+    response.on('close', stop);
   }
 }

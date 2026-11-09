@@ -10,6 +10,8 @@ import { BusinessService } from './modules/business/business.service';
 import { InterventionService } from './modules/intervention/intervention.service';
 import { ListMembersService } from './modules/members/list-members.service';
 import { AuthService } from './modules/auth/auth.service';
+import { TrackingEventsHub } from './modules/tracking/tracking-events.hub';
+import { TrackingScheduler } from './modules/tracking/tracking-maintenance.processor';
 
 const businessService = { getBusiness: jest.fn(async () => ({ id: 'b1' })), updateBusiness: jest.fn(async () => ({ id: 'b1' })) };
 const interventionService = {
@@ -26,6 +28,10 @@ describe('AppModule wiring + authorization', () => {
       .overrideProvider(PrismaService)
       .useValue({})
       .overrideProvider(RedisService)
+      .useValue({})
+      .overrideProvider(TrackingEventsHub)
+      .useValue({ publish: jest.fn(), subscribe: jest.fn() })
+      .overrideProvider(TrackingScheduler)
       .useValue({})
       .overrideProvider(BusinessService)
       .useValue(businessService)

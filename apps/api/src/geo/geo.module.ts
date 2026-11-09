@@ -1,9 +1,13 @@
 import { Injectable, Module, DynamicModule, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Geocoder } from './geocoder.interface';
+import { AuthModule } from '../modules/auth/auth.module';
+import { RedisService } from '../common/redis.service';
+import { GEOCODER_TOKEN, Geocoder } from './geocoder.interface';
+import { GeoCacheService } from './geo.cache.service';
+import { GeoController } from './geo.controller';
 import { BanGeocoder } from './providers/ban-geocoder.provider';
 
-export const GEOCODER_TOKEN = 'GEOCODER';
+export { GEOCODER_TOKEN };
 
 @Injectable()
 export class GeocoderService {
@@ -57,15 +61,18 @@ export const geoProviders: Provider<Geocoder>[] = [
 ];
 
 @Module({
-  imports: [ConfigModule],
-  providers: [...geoProviders, GeoConfigService, BanGeocoder],
+  imports: [ConfigModule, AuthModule],
+  controllers: [GeoController],
+  providers: [...geoProviders, GeoConfigService, BanGeocoder, GeoCacheService, RedisService],
   exports: [...geoProviders, GeoConfigService],
 })
 export class GeoModule {
   static forRoot(): DynamicModule {
     return {
       module: GeoModule,
-      providers: [...geoProviders, GeoConfigService],
+      imports: [ConfigModule, AuthModule],
+      controllers: [GeoController],
+      providers: [...geoProviders, GeoConfigService, GeoCacheService, RedisService],
       exports: [...geoProviders, GeoConfigService],
     };
   }

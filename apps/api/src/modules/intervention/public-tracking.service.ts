@@ -20,6 +20,8 @@ export interface PublicTrackingProjection {
   delayMinutes?: number;
   delayReason?: string;
   /** Only while EN_ROUTE. Coordinates are omitted when the last fix is stale. */
+  /** LIVE (fix <= 120 s), STALE (older: position hidden, last ETA kept with its timestamp), UNAVAILABLE. */
+  locationStatus: 'LIVE' | 'STALE' | 'UNAVAILABLE';
   location?: { lat?: number; lng?: number; status: 'FRESH' | 'STALE'; lastFixAt: string };
   contactPhone: string;
 }
@@ -46,6 +48,14 @@ export class PublicTrackingService {
     return this.project(intervention, now);
   }
 
+  /** Resolves a token to its intervention for SSE subscriptions; same failure modes as the projection. */
+  async interventionIdForToken(token: string, now = new Date()): Promise<string> {
+    const link = await this.repository.findActiveLinkByHash(hashToken(token));
+    if (!link) throw new NotFoundException();
+    if (link.expiresAt.getTime() < now.getTime()) throw new GoneException('Ce lien a expiré');
+    return link.interventionId;
+  }
+
   private isPastFinalStateWindow(i: InterventionForPublic, now: Date): boolean {
     if (i.status !== 'COMPLETED' && i.status !== 'CANCELLED') return false;
     const endedAt = i.status === 'COMPLETED' ? (i.completedAt ?? i.updatedAt) : i.updatedAt;
@@ -66,6 +76,7 @@ export class PublicTrackingService {
       windowEnd: i.windowEnd.toISOString(),
       addressLabel: i.addressLabel,
       contactPhone: i.business.phone,
+      locationStatus: 'UNAVAILABLE',
     };
 
     if ((i.status === 'SCHEDULED' || i.status === 'EN_ROUTE') && i.delayMinutes) {
@@ -79,6 +90,7 @@ export class PublicTrackingService {
 
       if (session.lastFixAt) {
         const fresh = now.getTime() - session.lastFixAt.getTime() <= STALE_FIX_MS;
+        projection.locationStatus = fresh ? 'LIVE' : 'STALE';
         projection.location =
           fresh && session.lastLat !== null && session.lastLng !== null
             ? {
