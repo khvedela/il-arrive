@@ -26,10 +26,6 @@ import type {
 import type { PublicTrackingProjection } from './public-tracking';
 import type { SSEEvent, SSEEventType, SSEEventData } from './sse-event';
 import type { NotificationDto } from './notification-dto';
-import type { SmsProvider, SmsProviderMessage } from './sms-provider';
-import type { ConsoleSmsOutboxItem, ConsoleSmsOutboxDto } from './console-sms-outbox';
-import type { SmsProvider, SmsProviderMessage } from './sms-provider';
-import type { ConsoleSmsOutboxItem, ConsoleSmsOutboxDto } from './console-sms-outbox';
 
 export type {
   // Enums
@@ -64,9 +60,4 @@ export type {
   SSEEvent,
   SSEEventType,
   SSEEventData,
-  // SMS provider
-  SmsProvider,
-  SmsProviderMessage,
-  ConsoleSmsOutboxItem,
-  ConsoleSmsOutboxDto,
 };
